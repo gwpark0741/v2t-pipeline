@@ -8,8 +8,8 @@ def get_client(api_key: str) -> genai.Client:
     return genai.Client(api_key=api_key)
 
 
-def upload_video(client: genai.Client, video_path: str, max_timeout: int = 200) -> str:
-    """영상 파일을 Gemini File API에 업로드하고 URI 반환"""
+def upload_video(client: genai.Client, video_path: str, max_timeout: int = 200) -> tuple[str, str]:
+    """영상 파일을 Gemini File API에 업로드 -> file_uri와 file_name 반환"""
     video_file = client.files.upload(path=video_path)
     start_time = time.time()
 
@@ -28,20 +28,20 @@ def upload_video(client: genai.Client, video_path: str, max_timeout: int = 200) 
         raise RuntimeError(f"File upload failed: {video_file.failure_reason}")
 
     print(f"File {video_file.name} upload completed successfully.")
-    return video_file.uri
+    return video_file.uri, video_file.name
 
 
 def generate_response(
     client: genai.Client,
     user_prompt: str,
-    video_uri: str,
+    file_name: str,
     model_name: str,
     temperature: float,
     seed: int,
     system_prompt: str = "",
 ) -> str:
-    """Gemini 모델에 영상 URI와 프롬프트 전달하여 응답 생성"""
-    video_ref = client.files.get(name=video_uri.split("/")[-1])
+    """Gemini 모델에 영상 파일과 프롬프트 전달하여 응답 생성"""
+    video_ref = client.files.get(name=file_name)
 
     response = client.models.generate_content(
         model=model_name,
@@ -52,5 +52,5 @@ def generate_response(
             seed=seed,
             response_mime_type="application/json",
         )
-    )
+    ) 
     return response.text

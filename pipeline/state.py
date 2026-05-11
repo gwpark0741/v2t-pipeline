@@ -21,7 +21,7 @@ class BackgroundTrack(TypedDict):
 
 
 class PipelineState(TypedDict):
-    # 입력
+    # 입력값: run.py에서 초기 state 생성 시 설정
     video_path: str
     model: str
     temperature: float
@@ -29,15 +29,17 @@ class PipelineState(TypedDict):
     use_audio: bool
     input_mode: Literal["file_api", "frames"]
 
-    # 전처리 결과
+    # 전처리 결과: pipeline/nodes/preprocessing.py에서 설정
     video_duration: NotRequired[float]
-    file_uri: NotRequired[str | None]
+    working_video_path: NotRequired[str]    # 무음 처리된 영상의 임시 경로
+    file_uri: NotRequired[str]
+    file_name: NotRequired[str]
 
-    # 노드 결과
+    # LLM 추론 결과: pipeline/nodes/track_extraction.py에서 설정
     raw_llm_response: NotRequired[str]
     action_tracks: NotRequired[list[ActionTrack]]
     background_tracks: NotRequired[list[BackgroundTrack]]
 
-    # 메타
+    # 메타: run.py에서 초기화, 각 노드에서 에러 누적
     run_id: str
     errors: list[str]

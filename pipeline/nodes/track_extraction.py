@@ -29,7 +29,7 @@ def run_track_extraction(state: PipelineState) -> dict:
     raw_llm_response = generate_response(
         client=client,
         user_prompt=user_prompt,
-        video_uri=state["file_uri"],
+        file_name=state["file_name"],
         model_name=state["model"],
         temperature=state["temperature"],
         seed=state["seed"],
