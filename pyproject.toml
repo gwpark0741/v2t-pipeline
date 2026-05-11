@@ -1,0 +1,10 @@
+[project]
+name = "v2t-single"
+version = "0.1.0"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "google-generativeai>=0.8.0",
+    "langgraph>=0.2.0",
+    "pyyaml>=6.0",
+]
