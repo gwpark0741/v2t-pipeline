@@ -5,7 +5,7 @@ import yaml
 
 @dataclass
 class PipelineOptions:
-    use_audio: bool = True                                    # 오디오 트랙 포함 여부
+    use_audio: bool = False                                    # 오디오 트랙 포함 여부
     use_scene_detect: bool = False                            # 컷 자동 감지 (Phase 2)
     use_hitl: bool = False                                    # Human in the Loop (Phase 2)
     save_intermediate: bool = True                            # 중간 결과 저장
@@ -16,6 +16,8 @@ class PipelineOptions:
 class PipelineConfig:
     model: str                                               # 사용 모델
     mode: Literal["single", "multi"] = "single"              # 호출 방식 (single: VLM 단일 호출, multi: VLM 단계별 호출)
+    temperature: float = 0.0
+    seed: int = 42
     options: PipelineOptions = field(default_factory=PipelineOptions)
     output_dir: str = "results"
 

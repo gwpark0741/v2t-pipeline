@@ -13,6 +13,8 @@ class PipelineState(TypedDict):
     # 입력
     video_path: str
     model: str
+    temperature: float
+    seed: int
     use_audio: bool
     input_mode: str
 
