@@ -17,3 +17,5 @@ def build_graph():
     graph.add_edge("track_extraction", END)
 
     return graph.compile()
+
+graph = build_graph()
