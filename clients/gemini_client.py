@@ -10,7 +10,7 @@ def get_client(api_key: str) -> genai.Client:
 
 def upload_video(client: genai.Client, video_path: str, max_timeout: int = 200) -> tuple[str, str]:
     """영상 파일을 Gemini File API에 업로드 -> file_uri와 file_name 반환"""
-    video_file = client.files.upload(path=video_path)
+    video_file = client.files.upload(file=video_path)
     start_time = time.time()
 
     print(f"Uploading {video_file.name} to Gemini File API...")

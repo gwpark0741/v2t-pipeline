@@ -10,7 +10,7 @@ from prompts.single import SYSTEM_PROMPT, USER_PROMPT
 
 # video 전처리에서 추출한 duration을 활용하여 user prompt를 생성하는 함수
 def build_user_prompt(duration: float) -> str:
-    return USER_PROMPT.format(duration=duration)
+    return USER_PROMPT.replace("__DURATION__", str(duration))
 
 
 # Gemini 모델로부터 받은 raw response를 JSON으로 파싱하고, pydantic 모델로 검증하는 함수
