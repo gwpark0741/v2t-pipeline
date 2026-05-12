@@ -7,6 +7,7 @@ class TimeSegment(TypedDict):
 
 
 class ActionTrack(TypedDict):
+    track_id: str
     event_type: str
     segments: list[TimeSegment]
     description: str
@@ -14,6 +15,7 @@ class ActionTrack(TypedDict):
 
 
 class BackgroundTrack(TypedDict):
+    track_id: str
     ambience_type: str
     segments: list[TimeSegment]
     description: str

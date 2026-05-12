@@ -1,10 +1,12 @@
 import argparse # argparse 모듈을 사용하여 명령 인자를 파싱
 from datetime import datetime
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 from config import PipelineConfig
 from pipeline.graph import build_graph
+from pipeline.reporting import save_run_artifacts
 from pipeline.state import PipelineState
 
 def parse_args():
@@ -54,10 +56,19 @@ def main():
     config = PipelineConfig.from_yaml(args.config) # yaml 파일에서 파이프라인 설정 로드
 
     graph = build_graph()
+
     initial_state = build_initial_state(args, config) # 초기 상태 생성
     final_state = graph.invoke(initial_state) # 그래프 실행, 초기 상태를 입력으로 받아 최종 상태 반환
 
-    print(final_state)
+    # 실행 결과를 저장 및 결과 JSON과 HTML 보고서 생성, 저장 경로 반환
+    result_json_path, report_html_path = save_run_artifacts(
+        final_state,
+        config.output_dir,
+    )
+
+    print(f"Run completed: {final_state['run_id']}")
+    print(f"Result JSON: {Path(result_json_path).resolve()}")
+    print(f"HTML report: {Path(report_html_path).resolve()}")
 
 
 if __name__ == "__main__":
