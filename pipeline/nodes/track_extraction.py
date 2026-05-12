@@ -42,7 +42,7 @@ def run_track_extraction(state: PipelineState) -> dict:
     validated_dict = attach_track_ids(validated_dict)
 
     return {
-        "raw_llm_response": raw_json_payload,
+        "raw_json_payload": raw_json_payload,
         "action_tracks": validated_dict["action_tracks"],
         "background_tracks": validated_dict["background_tracks"],
 

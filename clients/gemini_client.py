@@ -65,7 +65,7 @@ def generate_structured_response(
     seed: int,
     system_prompt: str = "",
 ) -> tuple[str, TrackOutputModel]:
-    """LangChain + Gemini structured output 호출 -> parsing된 raw_llm_response, track_output 반환"""
+    """LangChain + Gemini structured output 호출 -> raw_json_payload, track_output 반환"""
 
     # LangChain Gemini chat model 초기화
     llm = ChatGoogleGenerativeAI(
