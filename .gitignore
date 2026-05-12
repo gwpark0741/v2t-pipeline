@@ -11,3 +11,10 @@ wheels/
 
 # environment variables
 .env
+
+# video data
+videos/*
+results?/*
+
+# langgraph API
+.langgraph_api/
