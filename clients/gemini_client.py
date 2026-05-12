@@ -1,6 +1,12 @@
+import json
 import time
+
 from google import genai
-from google.genai import types
+from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
+from pydantic import ValidationError
+
+from pipeline.schema import TrackOutputModel
 
 
 def get_client(api_key: str) -> genai.Client:
@@ -8,7 +14,11 @@ def get_client(api_key: str) -> genai.Client:
     return genai.Client(api_key=api_key)
 
 
-def upload_video(client: genai.Client, video_path: str, max_timeout: int = 200) -> tuple[str, str]:
+def upload_video(
+        client: genai.Client, 
+        video_path: str, 
+        max_timeout: int = 200,
+) -> tuple[str, str]:
     """영상 파일을 Gemini File API에 업로드 -> file_uri와 file_name 반환"""
     video_file = client.files.upload(file=video_path)
     start_time = time.time()
@@ -31,26 +41,81 @@ def upload_video(client: genai.Client, video_path: str, max_timeout: int = 200) 
     return video_file.uri, video_file.name
 
 
-def generate_response(
-    client: genai.Client,
+def _extract_json_payload(raw_message) -> str:
+    """LangChain raw AIMessage에서 가능한 한 JSON 원문에 가까운 문자열 추출"""
+    tool_calls = raw_message.additional_kwargs.get("tool_calls", [])
+    if tool_calls:
+        function = tool_calls[0].get("function", {})
+        arguments = function.get("arguments")
+        if isinstance(arguments, str) and arguments:
+            return arguments
+
+    if isinstance(raw_message.content, str):
+        return raw_message.content
+
+    return json.dumps(raw_message.model_dump(mode="json"), ensure_ascii=False)
+
+
+def generate_structured_response(
+    api_key: str,
     user_prompt: str,
-    file_name: str,
+    file_uri: str,
     model_name: str,
     temperature: float,
     seed: int,
     system_prompt: str = "",
-) -> str:
-    """Gemini 모델에 영상 파일과 프롬프트 전달하여 응답 생성"""
-    video_ref = client.files.get(name=file_name)
+) -> tuple[str, TrackOutputModel]:
+    """LangChain + Gemini structured output 호출 -> parsing된 raw_llm_response, track_output 반환"""
 
-    response = client.models.generate_content(
+    # LangChain Gemini chat model 초기화
+    llm = ChatGoogleGenerativeAI(
+        api_key=api_key,
         model=model_name,
-        contents=[video_ref, user_prompt],
-        config=types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            temperature=temperature,
-            seed=seed,
-            response_mime_type="application/json",
-        )
-    ) 
-    return response.text
+        temperature=temperature,
+        seed=seed,
+        response_mime_type="application/json",
+    )
+    
+    # Pydantic schema로 구조화된 출력 강제
+    structured_llm = llm.with_structured_output(
+        TrackOutputModel,
+        include_raw=True, # 원본 AIMessage 보존
+    )
+
+    # system prompt + user prompt + vidoes 재공 -> 구조화된 llm output
+    result = structured_llm.invoke(
+        [
+            SystemMessage(content=system_prompt),
+            HumanMessage(
+                content=[
+                    {
+                        "type": "file",
+                        "file_id": file_uri,
+                        "mime_type": "video/mp4",
+                    },
+                    {
+                        "type": "text",
+                        "text": user_prompt,
+                    },
+                ]
+            ),
+        ]
+    )
+
+    # 파싱 에러 발생 시 유형을 구분
+    parsing_error = result["parsing_error"]
+    if parsing_error is not None:
+        if isinstance(parsing_error, json.JSONDecodeError):
+            print(f"LLM did not return valid JSON: {parsing_error}")
+        elif isinstance(parsing_error, ValidationError):
+            print(f"LLM JSON did not match TrackOutputModel: {parsing_error}")
+
+        raise parsing_error
+
+    track_output = result["parsed"]
+    if track_output is None:
+        raise ValueError("Structured output parsing returned None")
+    
+    # 디버깅용 원본 JSON 파싱 텍스트 추출
+    raw_json_payload = _extract_json_payload(result["raw"])
+    return raw_json_payload, track_output
