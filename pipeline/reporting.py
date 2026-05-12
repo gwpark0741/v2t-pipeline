@@ -1,4 +1,5 @@
 import json
+import shutil
 from html import escape
 from pathlib import Path
 from typing import Any, cast
@@ -67,7 +68,7 @@ def _build_timeline_ticks(duration: float, steps: int = 6) -> str:
     return "".join(ticks)
 
 
-def build_report_html(state: PipelineState) -> str:
+def build_report_html(state: PipelineState, video_src: str) -> str:
     """HTML 보고서를 생성하는 함수: state를 입력으로 받아, 필요한 필드를 추출하여 HTML 보고서 생성 -> HTML 문자열 반환"""
     video_path = state["video_path"]
     duration = state["video_duration"]
@@ -100,7 +101,7 @@ def build_report_html(state: PipelineState) -> str:
         )
 
     timeline_ticks = _build_timeline_ticks(duration)
-    video_src = escape(Path(video_path).resolve().as_uri())
+    escaped_video_src = escape(video_src)
 
     return f"""<!doctype html>
 <html lang="en">
@@ -426,7 +427,7 @@ def build_report_html(state: PipelineState) -> str:
         <p class="subtitle">Run ID: {escape(run_id)}</p>
       </div>
       <div class="video-wrap">
-        <video id="report-video" controls preload="metadata" src="{video_src}"></video>
+        <video id="report-video" controls preload="metadata" src="{escaped_video_src}"></video>
       </div>
       <div class="summary">
         <div class="summary-card">
@@ -512,7 +513,7 @@ def _serialize_state(state: PipelineState) -> dict[str, Any]:
         "working_video_path": state.get("working_video_path"),
         "file_uri": state.get("file_uri"),
         "file_name": state.get("file_name"),
-        "raw_llm_response": state.get("raw_llm_response"),
+        "raw_json_payload": state.get("raw_json_payload"),
         "action_tracks": state.get("action_tracks", []),
         "background_tracks": state.get("background_tracks", []),
         "run_id": state["run_id"],
@@ -520,9 +521,20 @@ def _serialize_state(state: PipelineState) -> dict[str, Any]:
     }
 
 
+def _resolve_report_video_src(report_dir: Path, state: PipelineState) -> str:
+    bundled_video_path = report_dir / "videos" / Path(state["video_path"]).name
+    if bundled_video_path.exists():
+        return bundled_video_path.relative_to(report_dir).as_posix()
+    return Path(state["video_path"]).resolve().as_uri()
+
+
 def write_report_html(state: PipelineState, report_html_path: Path) -> Path:
     """주어진 state로 HTML 보고서를 생성해 지정 경로에 저장한다."""
-    report_html_path.write_text(build_report_html(state), encoding="utf-8")
+    video_src = _resolve_report_video_src(report_html_path.parent, state)
+    report_html_path.write_text(
+        build_report_html(state, video_src=video_src),
+        encoding="utf-8",
+    )
     return report_html_path
 
 
@@ -557,6 +569,10 @@ def save_run_artifacts(state: PipelineState, output_root: str) -> tuple[Path, Pa
     # 결과 JSON과 HTML 보고서의 경로
     result_json_path = run_dir / "tracks.json"
     report_html_path = run_dir / "report.html"
+    bundled_video_dir = run_dir / "videos"
+    bundled_video_dir.mkdir(parents=True, exist_ok=True)
+    bundled_video_path = bundled_video_dir / Path(state["video_path"]).name
+    shutil.copy2(state["video_path"], bundled_video_path)
 
     # state를 JSON으로 직렬화하여 경로에 작성
     result_json_path.write_text(
