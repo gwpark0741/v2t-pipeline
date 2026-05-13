@@ -1,0 +1,5 @@
+# .env.example
+GEMINI_API_KEY=your_gemini_key
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=your_langsmith_key
+LANGCHAIN_PROJECT=v2t-single

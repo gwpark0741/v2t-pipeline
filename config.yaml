@@ -1,0 +1,12 @@
+mode: "single"
+model: "gemini-2.5-pro"
+output_dir: "results"
+temperature: 0.0
+seed: 42
+    
+options:
+  use_audio: false
+  use_scene_detect: false
+  use_hitl: false
+  save_intermediate: true
+  input_mode: "file_api"
