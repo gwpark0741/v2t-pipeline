@@ -14,7 +14,10 @@ wheels/
 
 # video data
 videos/*
-results?/*
+results/*
 
 # langgraph API
 .langgraph_api/
+
+
+.DS_Store
