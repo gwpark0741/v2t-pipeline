@@ -10,6 +10,7 @@ class PipelineOptions:
     use_hitl: bool = False                                    # Human in the Loop (Phase 2)
     save_intermediate: bool = True                            # 중간 결과 저장
     input_mode: Literal["file_api", "frames"] = "file_api"    # 영상 입력 방식
+    video_fps: float | None = None
 
 
 @dataclass

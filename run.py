@@ -43,6 +43,7 @@ def build_initial_state(args, config: PipelineConfig) -> PipelineState:
         "seed": config.seed,
         "use_audio": config.options.use_audio,
         "input_mode": config.options.input_mode,
+        "video_fps": config.options.video_fps,
         "run_id": make_run_id(),
         "errors": [],
     }

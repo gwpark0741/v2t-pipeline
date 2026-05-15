@@ -1,9 +1,7 @@
-import json
 import time
 
 from google import genai
-from langchain_core.messages import SystemMessage, HumanMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
+from google.genai import types
 from pydantic import ValidationError
 
 from pipeline.schema import TrackOutputModel
@@ -41,19 +39,55 @@ def upload_video(
     return video_file.uri, video_file.name
 
 
-def _extract_json_payload(raw_message) -> str:
-    """LangChain raw AIMessage에서 가능한 한 JSON 원문에 가까운 문자열 추출"""
-    tool_calls = raw_message.additional_kwargs.get("tool_calls", [])
-    if tool_calls:
-        function = tool_calls[0].get("function", {})
-        arguments = function.get("arguments")
-        if isinstance(arguments, str) and arguments:
-            return arguments
+def _build_video_part(
+        file_uri: str, 
+        video_fps: float | None
+) -> types.Part:
+    """비디오 파일에 대한 추론 준비: File API 업로드된 video + fps info -> video part 생성"""
+    file_data = types.FileData(
+        file_uri=file_uri,
+        mime_type="video/mp4",
+    )
 
-    if isinstance(raw_message.content, str):
-        return raw_message.content
+    if video_fps is None:
+        return types.Part(file_data=file_data)
+    
+    return types.Part(
+        file_data=file_data,
+        video_metadata=types.VideoMetadata(fps=video_fps),
+    )
 
-    return json.dumps(raw_message.model_dump(mode="json"), ensure_ascii=False)
+
+def _build_generation_config(
+    system_prompt: str,
+    temperature: float,
+    seed: int,
+) -> types.GenerateContentConfig:
+    """Gemini generation config 생성"""
+    return types.GenerateContentConfig(
+        system_instruction=system_prompt,
+        temperature = temperature,
+        seed = seed,
+        response_mime_type="application/json",
+        response_json_schema=TrackOutputModel.model_json_schema(),
+    )
+
+
+def _extract_response_text(response) -> str:
+    """Gemini SDK 응답에서 JSON 텍스트 추출"""
+    response_text = getattr(response, "text", None)
+    if not response_text:
+        raise ValueError("Gemini returned empty response text")
+    return response_text
+
+
+def _validate_track_output(response_text: str) -> TrackOutputModel:
+    """Gemini 응답 JSON을 Pydantic schema로 검증"""
+    try:
+        return TrackOutputModel.model_validate_json(response_text)
+    except ValidationError as exc:
+        print(f"LLM JSON did not match TrackOutputModel: {exc}")
+        raise
 
 
 def generate_structured_response(
@@ -64,58 +98,22 @@ def generate_structured_response(
     temperature: float,
     seed: int,
     system_prompt: str = "",
+    video_fps: float | None = None,
 ) -> tuple[str, TrackOutputModel]:
-    """LangChain + Gemini structured output 호출 -> raw_json_payload, track_output 반환"""
+    """Gemini SDK + Gemini structured output 호출 -> raw_json_payload, track_output 반환"""
+    client = get_client(api_key)
+    video_part = _build_video_part(file_uri, video_fps)
+    config = _build_generation_config(system_prompt, temperature, seed)
 
-    # LangChain Gemini chat model 초기화
-    llm = ChatGoogleGenerativeAI(
-        api_key=api_key,
-        model=model_name,
-        temperature=temperature,
-        seed=seed,
-        response_mime_type="application/json",
-    )
-    
-    # Pydantic schema로 구조화된 출력 강제
-    structured_llm = llm.with_structured_output(
-        TrackOutputModel,
-        include_raw=True, # 원본 AIMessage 보존
+    response = client.models.generate_content(
+        model = model_name,
+        contents=[
+            video_part,
+            types.Part(text=user_prompt)
+        ],
+        config=config,
     )
 
-    # system prompt + user prompt + vidoes 재공 -> 구조화된 llm output
-    result = structured_llm.invoke(
-        [
-            SystemMessage(content=system_prompt),
-            HumanMessage(
-                content=[
-                    {
-                        "type": "file",
-                        "file_id": file_uri,
-                        "mime_type": "video/mp4",
-                    },
-                    {
-                        "type": "text",
-                        "text": user_prompt,
-                    },
-                ]
-            ),
-        ]
-    )
-
-    # 파싱 에러 발생 시 유형을 구분
-    parsing_error = result["parsing_error"]
-    if parsing_error is not None:
-        if isinstance(parsing_error, json.JSONDecodeError):
-            print(f"LLM did not return valid JSON: {parsing_error}")
-        elif isinstance(parsing_error, ValidationError):
-            print(f"LLM JSON did not match TrackOutputModel: {parsing_error}")
-
-        raise parsing_error
-
-    track_output = result["parsed"]
-    if track_output is None:
-        raise ValueError("Structured output parsing returned None")
-    
-    # 디버깅용 원본 JSON 파싱 텍스트 추출
-    raw_json_payload = _extract_json_payload(result["raw"])
+    raw_json_payload = _extract_response_text(response)
+    track_output = _validate_track_output(raw_json_payload)
     return raw_json_payload, track_output

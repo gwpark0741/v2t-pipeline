@@ -30,6 +30,7 @@ class PipelineState(TypedDict):
     seed: int
     use_audio: bool
     input_mode: Literal["file_api", "frames"]
+    video_fps: float | None
 
     # 전처리 결과: pipeline/nodes/preprocessing.py에서 설정
     video_duration: NotRequired[float]

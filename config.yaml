@@ -10,3 +10,4 @@ options:
   use_hitl: false
   save_intermediate: true
   input_mode: "file_api"
+  video_fps: 5
