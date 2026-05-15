@@ -15,6 +15,7 @@ wheels/
 # video data
 videos/*
 results/*
+samples/*
 
 # langgraph API
 .langgraph_api/
