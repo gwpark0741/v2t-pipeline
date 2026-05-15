@@ -4,12 +4,6 @@ import os
 
 from clients.gemini_client import generate_structured_response
 from pipeline.state import PipelineState
-from prompts.single import SYSTEM_PROMPT, USER_PROMPT
-
-
-def build_user_prompt(duration: float) -> str:
-    """video 전처리에서 추출한 duration을 활용하여 user prompt를 생성하는 함수"""
-    return USER_PROMPT.replace("__DURATION__", str(duration))
 
 
 def attach_track_ids(validated_dict: dict) -> dict:
@@ -26,12 +20,11 @@ def attach_track_ids(validated_dict: dict) -> dict:
 def run_track_extraction(state: PipelineState) -> dict:
     """Gemini 호출 및 응답 처리 전체를 담당하는 함수: API 호출 -> structured_output -> 필요한 필드 추출하여 반환"""
     api_key = os.environ["GEMINI_API_KEY"] # 환경변수에서 API 키 읽기
-    user_prompt = build_user_prompt(state["video_duration"])
-    
+
     raw_json_payload, structured_output = generate_structured_response(
         api_key=api_key,
-        user_prompt=user_prompt,
-        system_prompt=SYSTEM_PROMPT,
+        user_prompt=state["user_prompt"],
+        system_prompt=state["system_prompt"],
         file_uri=state["file_uri"],
         model_name=state["model"],
         temperature=state["temperature"],

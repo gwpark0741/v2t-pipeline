@@ -37,8 +37,13 @@ class PipelineState(TypedDict):
     file_uri: NotRequired[str]
     file_name: NotRequired[str]
 
+    # prompt info: pipeline/nodes/build_prompt.py에서 설정
+    prompt_profile: NotRequired[Literal["single", "single_audio"]]
+    system_prompt: NotRequired[str]
+    user_prompt: NotRequired[str]
+
     # LLM 추론 결과: pipeline/nodes/track_extraction.py에서 설정
-    raw_llm_response: NotRequired[str]
+    raw_json_payload: NotRequired[str]
     action_tracks: NotRequired[list[ActionTrack]]
     background_tracks: NotRequired[list[BackgroundTrack]]
 
