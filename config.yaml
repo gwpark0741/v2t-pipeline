@@ -11,3 +11,4 @@ options:
   save_intermediate: true
   input_mode: "file_api"
   video_fps: 5
+  use_sound_layering: true
