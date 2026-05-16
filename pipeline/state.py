@@ -6,12 +6,30 @@ class TimeSegment(TypedDict):
     end: float
 
 
+class OnsetSoundLayer(TypedDict):
+    layer_label: str
+    sound_type: Literal["onset"]
+    onsets: list[float]
+    description: str
+
+
+class ContinuousSoundLayer(TypedDict):
+    layer_label: str
+    sound_type: Literal["continuous"]
+    segments: list[TimeSegment]
+    description: str
+
+
+SoundLayer = OnsetSoundLayer | ContinuousSoundLayer
+
+
 class ActionTrack(TypedDict):
     track_id: str
     event_type: str
     segments: list[TimeSegment]
     description: str
     audio_type: Literal["sfx"]
+    sound_layers: NotRequired[list[SoundLayer]]
 
 
 class BackgroundTrack(TypedDict):
@@ -20,6 +38,7 @@ class BackgroundTrack(TypedDict):
     segments: list[TimeSegment]
     description: str
     audio_type: Literal["ambience"]
+    sound_layers: NotRequired[list[SoundLayer]]
 
 
 class PipelineState(TypedDict):
@@ -31,6 +50,7 @@ class PipelineState(TypedDict):
     use_audio: bool
     input_mode: Literal["file_api", "frames"]
     video_fps: float | None
+    use_sound_layering: bool
 
     # 전처리 결과: pipeline/nodes/preprocessing.py에서 설정
     video_duration: NotRequired[float]
@@ -39,7 +59,7 @@ class PipelineState(TypedDict):
     file_name: NotRequired[str]
 
     # prompt info: pipeline/nodes/build_prompt.py에서 설정
-    prompt_profile: NotRequired[Literal["single", "single_audio"]]
+    prompt_profile: NotRequired[Literal["single", "single_audio", "single_layering"]]
     system_prompt: NotRequired[str]
     user_prompt: NotRequired[str]
 
