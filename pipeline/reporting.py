@@ -50,6 +50,126 @@ def _build_track_row(
     """
 
 
+def _build_continuous_layer_blocks(
+    layer_kind: str,
+    segments: list[dict[str, float]],
+    duration: float,
+) -> str:
+    blocks: list[str] = []
+    for segment in segments:
+        start = segment["start"]
+        end = segment["end"]
+        left = 0.0 if duration == 0 else (start / duration) * 100
+        width = 0.0 if duration == 0 else ((end - start) / duration) * 100
+        blocks.append(
+            f"""
+            <div class="layer-segment layer-segment-{layer_kind}" style="left: {left:.4f}%; width: {width:.4f}%;">
+              <span class="segment-time">{_format_seconds(start)} - {_format_seconds(end)}</span>
+            </div>
+            """
+        )
+    return "".join(blocks)
+
+
+def _build_onset_layer_blocks(
+    onsets: list[float],
+    duration: float,
+) -> str:
+    markers: list[str] = []
+    for onset in onsets:
+        left = 0.0 if duration == 0 else (onset / duration) * 100
+        markers.append(
+            f"""
+            <div class="onset-marker" style="left: {left:.4f}%;">
+              <span class="onset-time">{_format_seconds(onset)}</span>
+            </div>
+            """
+        )
+    return "".join(markers)
+
+
+def _build_layer_row(
+    track_kind: str,
+    track_id: str,
+    layer: dict[str, Any],
+    duration: float,
+) -> str:
+    sound_type = layer.get("sound_type", "unknown")
+    layer_label = layer.get("layer_label", "unknown_layer")
+    description = layer.get("description", "")
+    layer_kind_class = f"{track_kind}-{sound_type}"
+
+    if sound_type == "onset":
+        layer_blocks = _build_onset_layer_blocks(layer.get("onsets", []), duration)
+        timing_summary = f"{len(layer.get('onsets', []))} onsets"
+    elif sound_type == "continuous":
+        layer_blocks = _build_continuous_layer_blocks(
+            track_kind,
+            layer.get("segments", []),
+            duration,
+        )
+        timing_summary = f"{len(layer.get('segments', []))} segments"
+    else:
+        layer_blocks = ""
+        timing_summary = "unknown timing"
+
+    return f"""
+    <div class="layer-row layer-row-{track_kind}">
+      <div class="track-meta layer-meta">
+        <div class="layer-parent-ref">{escape(track_id)}</div>
+        <div class="track-label">{escape(layer_label)}</div>
+        <div class="layer-badges">
+          <span class="layer-type layer-type-{escape(sound_type)}">{escape(sound_type)}</span>
+          <span class="layer-count">{escape(timing_summary)}</span>
+        </div>
+        <div class="track-description">{escape(description)}</div>
+      </div>
+      <div class="track-lane layer-lane layer-lane-{escape(layer_kind_class)}">
+        {layer_blocks}
+      </div>
+    </div>
+    """
+
+
+def _build_layer_group(
+    track_kind: str,
+    track_id: str,
+    label: str,
+    description: str,
+    segments: list[dict[str, float]],
+    layers: list[dict[str, Any]],
+    duration: float,
+) -> str:
+    parent_row = _build_track_row(
+        track_kind=track_kind,
+        track_id=track_id,
+        label=label,
+        description=description,
+        segments=segments,
+        duration=duration,
+    ).replace('class="track-row"', 'class="track-row layer-parent-row"', 1)
+
+    if not layers:
+        layer_rows = '<div class="layer-empty">No finer sound layers for this parent track.</div>'
+    else:
+        layer_rows = "".join(
+            _build_layer_row(
+                track_kind=track_kind,
+                track_id=track_id,
+                layer=layer,
+                duration=duration,
+            )
+            for layer in layers
+        )
+
+    return f"""
+    <section class="layer-group">
+      {parent_row}
+      {layer_rows}
+    </section>
+    """
+
+
 def _build_timeline_ticks(duration: float, steps: int = 6) -> str:
     if duration <= 0:
         return ""
@@ -77,6 +197,7 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
     background_tracks: list[BackgroundTrack] = state.get("background_tracks", [])
 
     rows: list[str] = []
+    layer_groups: list[str] = []
     for track in action_tracks:
         rows.append(
             _build_track_row(
@@ -85,6 +206,17 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
                 label=track["event_type"],
                 description=track["description"],
                 segments=track["segments"],
+                duration=duration,
+            )
+        )
+        layer_groups.append(
+            _build_layer_group(
+                track_kind="action",
+                track_id=track["track_id"],
+                label=track["event_type"],
+                description=track["description"],
+                segments=track["segments"],
+                layers=track.get("sound_layers", []),
                 duration=duration,
             )
         )
@@ -99,9 +231,21 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
                 duration=duration,
             )
         )
+        layer_groups.append(
+            _build_layer_group(
+                track_kind="background",
+                track_id=track["track_id"],
+                label=track["ambience_type"],
+                description=track["description"],
+                segments=track["segments"],
+                layers=track.get("sound_layers", []),
+                duration=duration,
+            )
+        )
 
     timeline_ticks = _build_timeline_ticks(duration)
     escaped_video_src = escape(video_src)
+    layer_count = sum(len(track.get("sound_layers", [])) for track in action_tracks + background_tracks)
 
     return f"""<!doctype html>
 <html lang="en">
@@ -216,6 +360,38 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
 
     .timeline-panel {{
       padding-bottom: 20px;
+    }}
+
+    .tabs {{
+      display: flex;
+      gap: 8px;
+      padding: 16px 20px 0;
+      border-bottom: 1px solid rgba(214, 203, 187, 0.65);
+    }}
+
+    .tab-button {{
+      appearance: none;
+      border: 1px solid rgba(214, 203, 187, 0.9);
+      border-bottom: 0;
+      padding: 10px 14px;
+      border-radius: 12px 12px 0 0;
+      background: rgba(255, 255, 255, 0.55);
+      color: var(--muted);
+      font-weight: 800;
+      cursor: pointer;
+    }}
+
+    .tab-button.active {{
+      color: var(--text);
+      background: rgba(255, 250, 240, 0.96);
+    }}
+
+    .tab-panel {{
+      display: none;
+    }}
+
+    .tab-panel.active {{
+      display: block;
     }}
 
     .timeline-wrap {{
@@ -382,6 +558,195 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
       background: linear-gradient(135deg, #b36b00, #da9a2d);
     }}
 
+    .layer-group {{
+      margin-bottom: 28px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid rgba(214, 203, 187, 0.75);
+    }}
+
+    .layer-group:last-child {{
+      border-bottom: 0;
+      margin-bottom: 0;
+    }}
+
+    .layer-row {{
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 20px;
+      align-items: center;
+      margin: 0 0 10px;
+    }}
+
+    .layer-parent-row {{
+      margin-bottom: 10px;
+    }}
+
+    .layer-parent-row .track-lane {{
+      min-height: 38px;
+      border-style: dashed;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(249, 244, 235, 0.76)),
+        repeating-linear-gradient(
+          90deg,
+          transparent 0,
+          transparent calc(20% - 1px),
+          rgba(214, 203, 187, 0.24) calc(20% - 1px),
+          rgba(214, 203, 187, 0.24) 20%
+        );
+    }}
+
+    .layer-meta {{
+      padding-left: 16px;
+      border-left: 3px solid rgba(125, 116, 104, 0.35);
+    }}
+
+    .layer-row-action .layer-meta {{
+      border-left-color: rgba(30, 143, 111, 0.48);
+    }}
+
+    .layer-row-background .layer-meta {{
+      border-left-color: rgba(179, 107, 0, 0.5);
+    }}
+
+    .layer-parent-ref {{
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-family: ui-monospace, "SFMono-Regular", "SF Mono", "Menlo", "Consolas", monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }}
+
+    .layer-badges {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+      align-items: center;
+    }}
+
+    .layer-type {{
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: white;
+    }}
+
+    .layer-type-continuous {{
+      background: #315f9d;
+    }}
+
+    .layer-type-onset {{
+      background: #c1121f;
+    }}
+
+    .layer-count {{
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(214, 203, 187, 0.8);
+    }}
+
+    .layer-lane {{
+      min-height: 44px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 250, 0.95)),
+        repeating-linear-gradient(
+          90deg,
+          transparent 0,
+          transparent calc(20% - 1px),
+          rgba(159, 177, 192, 0.26) calc(20% - 1px),
+          rgba(159, 177, 192, 0.26) 20%
+        );
+    }}
+
+    .layer-lane-action-continuous {{
+      border-color: rgba(49, 95, 157, 0.34);
+    }}
+
+    .layer-lane-background-continuous {{
+      border-color: rgba(49, 95, 157, 0.34);
+    }}
+
+    .layer-lane-action-onset,
+    .layer-lane-background-onset {{
+      border-color: rgba(193, 18, 31, 0.34);
+    }}
+
+    .layer-segment {{
+      position: absolute;
+      top: 10px;
+      bottom: 10px;
+      min-width: 6px;
+      border-radius: 8px;
+      padding: 5px 8px;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      overflow: hidden;
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: white;
+    }}
+
+    .layer-segment-action {{
+      background: linear-gradient(135deg, #315f9d, #5d8bc6);
+    }}
+
+    .layer-segment-background {{
+      background: linear-gradient(135deg, #315f9d, #5d8bc6);
+    }}
+
+    .onset-marker {{
+      position: absolute;
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      transform: translateX(-50%);
+      background: #c1121f;
+    }}
+
+    .onset-marker::before {{
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: #c1121f;
+      box-shadow: 0 0 0 4px rgba(193, 18, 31, 0.14);
+      transform: translate(-50%, -50%);
+    }}
+
+    .onset-time {{
+      position: absolute;
+      top: -17px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #8d0d17;
+      font-size: 0.68rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }}
+
+    .layer-empty {{
+      margin: 0 0 0 34px;
+      padding: 14px 16px;
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.5);
+    }}
+
     .segment-time {{
       text-overflow: ellipsis;
       overflow: hidden;
@@ -407,14 +772,20 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
 
       .timeline-scale,
       .playhead,
-      .empty {{
+      .empty,
+      .layer-empty {{
         margin-left: 0;
         left: 0;
       }}
 
-      .track-row {{
+      .track-row,
+      .layer-row {{
         grid-template-columns: 1fr;
         gap: 10px;
+      }}
+
+      .layer-row {{
+        margin-left: 0;
       }}
     }}
   </style>
@@ -446,6 +817,10 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
           <div class="summary-label">Background Tracks</div>
           <div class="summary-value">{len(background_tracks)}</div>
         </div>
+        <div class="summary-card">
+          <div class="summary-label">Sound Layers</div>
+          <div class="summary-value">{layer_count}</div>
+        </div>
       </div>
     </section>
 
@@ -454,11 +829,26 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
         <h2 class="title">Track Timeline</h2>
         <p class="subtitle">The red playhead follows the current playback time of the video.</p>
       </div>
-      <div class="timeline-wrap">
-        <div class="timeline-scale">{timeline_ticks}</div>
-        <div class="timeline-body">
-          <div id="playhead" class="playhead"></div>
-          {''.join(rows) if rows else '<div class="empty">No tracks were generated for this run.</div>'}
+      <div class="tabs" role="tablist" aria-label="Report views">
+        <button class="tab-button active" type="button" data-tab-target="major-tab">Major Tracks</button>
+        <button class="tab-button" type="button" data-tab-target="layers-tab">Sound Layers</button>
+      </div>
+      <div id="major-tab" class="tab-panel active">
+        <div class="timeline-wrap">
+          <div class="timeline-scale">{timeline_ticks}</div>
+          <div class="timeline-body">
+            <div class="playhead"></div>
+            {''.join(rows) if rows else '<div class="empty">No tracks were generated for this run.</div>'}
+          </div>
+        </div>
+      </div>
+      <div id="layers-tab" class="tab-panel">
+        <div class="timeline-wrap">
+          <div class="timeline-scale">{timeline_ticks}</div>
+          <div class="timeline-body">
+            <div class="playhead"></div>
+            {''.join(layer_groups) if layer_groups else '<div class="empty">No sound layers were generated for this run.</div>'}
+          </div>
         </div>
       </div>
     </section>
@@ -466,11 +856,13 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
 
   <script>
     const video = document.getElementById("report-video");
-    const playhead = document.getElementById("playhead");
+    const playheads = Array.from(document.querySelectorAll(".playhead"));
+    const tabButtons = Array.from(document.querySelectorAll(".tab-button"));
+    const tabPanels = Array.from(document.querySelectorAll(".tab-panel"));
     const fallbackDuration = {duration};
 
     function updatePlayhead() {{
-      if (!video || !playhead) return;
+      if (!video || !playheads.length) return;
 
       const effectiveDuration =
         Number.isFinite(video.duration) && video.duration > 0
@@ -481,15 +873,26 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
 
       const progress = Math.max(0, Math.min(1, video.currentTime / effectiveDuration));
 
-      if (window.innerWidth <= 1100) {{
-        playhead.style.left = `${{progress * 100}}%`;
-        return;
-      }}
+      playheads.forEach((playhead) => {{
+        if (window.innerWidth <= 1100) {{
+          playhead.style.left = `${{progress * 100}}%`;
+          return;
+        }}
 
-      const laneOffset = 260;
-      const laneWidth = playhead.parentElement.clientWidth - laneOffset;
-      playhead.style.left = `${{laneOffset + (laneWidth * progress)}}px`;
+        const laneOffset = 260;
+        const laneWidth = playhead.parentElement.clientWidth - laneOffset;
+        playhead.style.left = `${{laneOffset + (laneWidth * progress)}}px`;
+      }});
     }}
+
+    tabButtons.forEach((button) => {{
+      button.addEventListener("click", () => {{
+        const targetId = button.dataset.tabTarget;
+        tabButtons.forEach((item) => item.classList.toggle("active", item === button));
+        tabPanels.forEach((panel) => panel.classList.toggle("active", panel.id === targetId));
+        updatePlayhead();
+      }});
+    }});
 
     video?.addEventListener("timeupdate", updatePlayhead);
     video?.addEventListener("loadedmetadata", updatePlayhead);
