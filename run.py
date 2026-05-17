@@ -107,8 +107,10 @@ def main():
     batch_output_root = make_batch_output_root(args.video, config.output_dir)
     batch_output_root.mkdir(parents=True, exist_ok=True)
 
-    for video_path in video_paths:
-        print(f"Processing: {video_path}")
+    total_videos = len(video_paths)
+
+    for index, video_path in enumerate(video_paths, start=1):
+        print(f"[{index}/{total_videos}] Processing: {video_path}")
 
         try:
             initial_state = build_initial_state(str(video_path), args, config)
@@ -124,7 +126,7 @@ def main():
             print(f"HTML report: {Path(report_html_path).resolve()}")
 
         except Exception as exc:
-            print(f"Failed: {video_path}")
+            print(f"[{index}/{total_videos}] Failed: {video_path}")
             print(f"Error: {exc}")
 
 
