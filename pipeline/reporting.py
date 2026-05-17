@@ -117,6 +117,7 @@ def _build_layer_row(
     description = layer.get("description", "")
     preferred_generation_model = layer.get("preferred_generation_model")
     routing_reason = layer.get("routing_reason")
+    timestamp_confidence = layer.get("timestamp_confidence")
     layer_kind_class = f"{track_kind}-{sound_type}"
 
     if sound_type == "onset":
@@ -145,6 +146,13 @@ def _build_layer_row(
                 f'<div class="routing-reason">Route: {escape(routing_reason)}</div>'
             )
 
+    confidence_badge = ""
+    if timestamp_confidence:
+        confidence_badge = (
+            f'<span class="confidence-badge confidence-badge-{escape(timestamp_confidence)}">'
+            f'{escape(timestamp_confidence)} confidence</span>'
+        )
+
     return f"""
     <div class="layer-row layer-row-{track_kind}">
       <div class="track-meta layer-meta">
@@ -154,6 +162,7 @@ def _build_layer_row(
           <span class="layer-type layer-type-{escape(sound_type)}">{escape(sound_type)}</span>
           <span class="layer-count">{escape(timing_summary)}</span>
           {routing_badge}
+          {confidence_badge}
         </div>
         <div class="track-description">{escape(description)}</div>
         {routing_detail}
@@ -599,6 +608,36 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
 
     .routing-badge-v2a {{
       background: linear-gradient(135deg, #8b3f17, #d46b2c);
+    }}
+
+    .confidence-badge {{
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #2b241d;
+      border: 1px solid rgba(214, 203, 187, 0.9);
+    }}
+
+    .confidence-badge-high {{
+      background: rgba(30, 143, 111, 0.15);
+      color: #136b53;
+      border-color: rgba(30, 143, 111, 0.25);
+    }}
+
+    .confidence-badge-medium {{
+      background: rgba(218, 154, 45, 0.18);
+      color: #8a5400;
+      border-color: rgba(218, 154, 45, 0.3);
+    }}
+
+    .confidence-badge-low {{
+      background: rgba(193, 18, 31, 0.12);
+      color: #8d0d17;
+      border-color: rgba(193, 18, 31, 0.25);
     }}
 
     .track-lane {{

@@ -22,6 +22,9 @@ class TimeSegmentModel(BaseModel):
 GenerationModel = Literal["t2a", "v2a"]
 
 
+TimestampConfidence = Literal["high", "medium", "low"]
+
+
 class OnsetSoundLayerModel(BaseModel):
     """Onset sound layer로 float timestamp를 가짐"""
     model_config = ConfigDict(
@@ -35,6 +38,8 @@ class OnsetSoundLayerModel(BaseModel):
     description: str = Field(min_length=1)
     preferred_generation_model: GenerationModel
     routing_reason: str = Field(min_length=1)
+    timestamp_confidence: TimestampConfidence
+    
 
     @field_validator("onsets")
     @classmethod

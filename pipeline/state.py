@@ -11,6 +11,9 @@ class TimeSegment(TypedDict):
 GenerationModel = Literal["t2a", "v2a"]
 
 
+TimestampConfidence = Literal["high", "medium", "low"]
+
+
 class OnsetSoundLayer(TypedDict):
     layer_label: str
     sound_type: Literal["onset"]
@@ -18,6 +21,7 @@ class OnsetSoundLayer(TypedDict):
     description: str
     preferred_generation_model: GenerationModel
     routing_reason: str
+    timestamp_confidence: TimestampConfidence
 
 
 class ContinuousSoundLayer(TypedDict):
