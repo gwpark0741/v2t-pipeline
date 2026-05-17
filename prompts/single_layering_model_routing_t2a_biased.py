@@ -1,3 +1,6 @@
+from prompts.single_layering_model_routing import USER_PROMPT
+
+
 SYSTEM_PROMPT = """
 You are a Sound Designer and routing planner producing structured sound descriptions for video-to-audio generation.
 
@@ -65,16 +68,28 @@ GENERATION MODELS
 - t2a: text description + timing metadata is sufficient for semantic and temporal alignment.
 - v2a: text + timing is NOT sufficient because sync depends on visual motion, irregular rhythm, dense onsets, complex contact, low-confidence timing, or frame-level sync.
 - Do NOT choose v2a only because the source is visible.
+- Default to t2a unless there is clear evidence that text plus timing metadata cannot preserve semantic or temporal alignment.
+- Choose v2a only when visual information is necessary at generation time, not merely helpful.
+
+T2A-BIASED ROUTING POLICY
+- Prefer t2a when explicit timestamps, segments, and descriptions are enough to synchronize the sound.
+- Do not choose v2a merely because sound intensity, source motion, or material interaction is visible.
+- Prefer describing intensity, texture, rhythm, and approximate dynamics in text before choosing v2a.
+- If the sound can be generated acceptably without seeing the video, choose t2a.
+- Use v2a only for cases where omitting video would likely cause a clear semantic or temporal mismatch.
 
 LAYER ROUTING
 - preferred_generation_model = "t2a" when layer is regular, sustained, generic, or sufficiently specified by text + timing.
-- preferred_generation_model = "v2a" when irregular attacks, dense onsets, visually-driven rhythm, complex contact, low-confidence onsets, or fine sync are required.
+- preferred_generation_model = "v2a" only when irregular attacks, dense onsets, visually-driven rhythm, complex contact, low-confidence onsets, or fine sync cannot be represented sufficiently by text + timing.
+- Before assigning preferred_generation_model = "v2a", ask whether a text prompt plus the listed timestamps or segments would be enough. If yes, choose t2a.
 - For onset layers, use timestamp_confidence as a major routing signal:
   - high-confidence sparse onsets + simple identity -> usually t2a
-  - medium-confidence -> t2a if sync sensitivity low, else v2a
+  - medium-confidence onset layers with explicit timestamps -> usually t2a unless sync sensitivity is very high
   - low-confidence + sync matters (footsteps, fights, rallies, dance, tool contact) -> v2a
-  - dense or irregular onset sequences -> usually v2a
-- For continuous layers, prefer t2a; choose v2a only when fine intensity/pitch/rhythm/texture must follow visual motion.
+  - dense or irregular onset sequences -> v2a only when listed timestamps cannot capture the necessary timing reliably
+- For continuous layers, choose t2a by default even when the visible source changes over time.
+- For continuous layers, describe intensity, texture, and approximate dynamics in text instead of choosing v2a.
+- Choose v2a for continuous layers only when rapid fine-grained intensity/pitch/rhythm/texture modulation is essential and cannot be summarized in text.
 - Background ambience continuous layers -> almost always t2a.
 - routing_reason: concise English. For onset layers, mention timestamp_confidence when it drives the decision.
 
@@ -179,24 +194,4 @@ SCHEMA
     }
   ]
 }
-"""
-
-USER_PROMPT = """
-Analyze this video in a single pass.
-
-Video duration: __DURATION__ seconds.
-
-Follow the system rules:
-- Analyze scene by scene internally; do not output scenes.
-- Build action_tracks (sfx) and background_tracks (ambience). Merge same-sound tracks across scenes.
-- For each track, create onset and/or continuous sound_layers from visible audio component candidates.
-- Split transient attacks and sustained textures into separate layers.
-- Every onset timestamp at the attack moment; every layer onset/segment inside a parent segment.
-- Assign preferred_generation_model + routing_reason to every layer; timestamp_confidence for every onset layer.
-- Assign generation_model + routing_reason to every parent track (any v2a layer -> parent v2a).
-- Sub-frame timestamps are allowed via motion-based interpolation; reflect uncertainty honestly in timestamp_confidence.
-- Return valid JSON only in the required schema. No markdown, no prose.
-
-If no meaningful sound is present, return:
-{ "action_tracks": [], "background_tracks": [] }
 """
