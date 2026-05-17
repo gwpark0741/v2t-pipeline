@@ -1,9 +1,14 @@
 from typing import Literal, NotRequired, TypedDict
 
+from prompts.prompts_registry import PromptProfile
 
 class TimeSegment(TypedDict):
     start: float
     end: float
+
+
+# Model routing 결과 - 실제 오디오를 생성할 모델 선정 정보
+GenerationModel = Literal["t2a", "v2a"]
 
 
 class OnsetSoundLayer(TypedDict):
@@ -11,6 +16,8 @@ class OnsetSoundLayer(TypedDict):
     sound_type: Literal["onset"]
     onsets: list[float]
     description: str
+    preferred_generation_model: GenerationModel
+    routing_reason: str
 
 
 class ContinuousSoundLayer(TypedDict):
@@ -18,6 +25,8 @@ class ContinuousSoundLayer(TypedDict):
     sound_type: Literal["continuous"]
     segments: list[TimeSegment]
     description: str
+    preferred_generation_model: GenerationModel
+    routing_reason: str
 
 
 SoundLayer = OnsetSoundLayer | ContinuousSoundLayer
@@ -30,6 +39,8 @@ class ActionTrack(TypedDict):
     description: str
     audio_type: Literal["sfx"]
     sound_layers: NotRequired[list[SoundLayer]]
+    generation_model: GenerationModel
+    routing_reason: str
 
 
 class BackgroundTrack(TypedDict):
@@ -39,6 +50,8 @@ class BackgroundTrack(TypedDict):
     description: str
     audio_type: Literal["ambience"]
     sound_layers: NotRequired[list[SoundLayer]]
+    generation_model: GenerationModel
+    routing_reason: str
 
 
 class PipelineState(TypedDict):
@@ -51,6 +64,7 @@ class PipelineState(TypedDict):
     input_mode: Literal["file_api", "frames"]
     video_fps: float | None
     use_sound_layering: bool
+    prompt_profile: PromptProfile
 
     # 전처리 결과: pipeline/nodes/preprocessing.py에서 설정
     video_duration: NotRequired[float]
@@ -59,7 +73,6 @@ class PipelineState(TypedDict):
     file_name: NotRequired[str]
 
     # prompt info: pipeline/nodes/build_prompt.py에서 설정
-    prompt_profile: NotRequired[Literal["single", "single_audio", "single_layering"]]
     system_prompt: NotRequired[str]
     user_prompt: NotRequired[str]
 

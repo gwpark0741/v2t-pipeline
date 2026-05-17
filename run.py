@@ -87,6 +87,7 @@ def build_initial_state(
         "input_mode": config.options.input_mode,
         "video_fps": config.options.video_fps,
         "use_sound_layering": config.options.use_sound_layering,
+        "prompt_profile": config.options.prompt_profile,
         "run_id": make_run_id(video_path),
         "errors": [],
     }

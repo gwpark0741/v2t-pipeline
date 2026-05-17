@@ -18,6 +18,10 @@ class TimeSegmentModel(BaseModel):
         return self
     
 
+# Model routing 결과 - 실제 오디오를 생성할 모델 선정 정보
+GenerationModel = Literal["t2a", "v2a"]
+
+
 class OnsetSoundLayerModel(BaseModel):
     """Onset sound layer로 float timestamp를 가짐"""
     model_config = ConfigDict(
@@ -29,6 +33,8 @@ class OnsetSoundLayerModel(BaseModel):
     sound_type: Literal["onset"]
     onsets: list[float] = Field(min_length=1)
     description: str = Field(min_length=1)
+    preferred_generation_model: GenerationModel
+    routing_reason: str = Field(min_length=1)
 
     @field_validator("onsets")
     @classmethod
@@ -54,6 +60,8 @@ class ContinuousSoundLayerModel(BaseModel):
     sound_type: Literal["continuous"]
     segments: list[TimeSegmentModel] = Field(min_length=1)
     description: str = Field(min_length=1)
+    preferred_generation_model: GenerationModel
+    routing_reason: str = Field(min_length=1)
 
     @field_validator("segments")
     @classmethod
@@ -106,6 +114,8 @@ class ActionTrackModel(BaseModel):
     segments: list[TimeSegmentModel] = Field(min_length=1)
     description: str = Field(min_length=1)
     audio_type: Literal["sfx"]
+    generation_model: GenerationModel
+    routing_reason: str = Field(min_length=1)
     sound_layers: list[SoundLayerModel] = Field(default_factory=list)
 
     # segments 리스트가 시간 순으로 정렬되어 있는지 검증하는 필드 검증기
@@ -120,6 +130,7 @@ class ActionTrackModel(BaseModel):
                 raise ValueError("segments must be sorted by start time")
         return segments
     
+    # sound layer의 timestamp가 현재 track time에 포함되는지 확인
     @model_validator(mode="after")
     def validate_sound_layers_inside_track(self) -> "ActionTrackModel":
         for layer in self.sound_layers:
@@ -127,14 +138,19 @@ class ActionTrackModel(BaseModel):
                 for onset in layer.onsets:
                     if not _onset_is_inside_parent(self.segments, onset):
                         raise ValueError("sound layer onset must be inside parent track segments") 
-                    
             elif layer.sound_type == "continuous":
                 for segment in layer.segments:
                     if not _segment_is_inside_parent(self.segments, segment):
-                        raise ValueError("sound layer continuous must be inside parent track segments")
-                    
+                        raise ValueError("sound layer continuous must be inside parent track segments")                    
         return self
 
+    # sound layers의 preferrend generation model이 하나라도 V2A라면, 전체 track 생성 모델을 V2A로 지정
+    @model_validator(mode="after")
+    def validate_generation_model_routing(self) -> "ActionTrackModel":
+        if any(layer.preferred_generation_model == "v2a" for layer in self.sound_layers):
+            if self.generation_model != "v2a":
+                raise ValueError("parent generation_model must be v2a if any sound layer prefers v2a")
+        return self
 
 
 class BackgroundTrackModel(BaseModel):
@@ -148,6 +164,8 @@ class BackgroundTrackModel(BaseModel):
     segments: list[TimeSegmentModel] = Field(min_length=1)
     description: str = Field(min_length=1)
     audio_type: Literal["ambience"]
+    generation_model: GenerationModel
+    routing_reason: str = Field(min_length=1)
     sound_layers: list[SoundLayerModel] = Field(default_factory=list)
 
     # segments 리스트가 시간 순으로 정렬되어 있는지 검증하는 필드 검증기
@@ -162,19 +180,26 @@ class BackgroundTrackModel(BaseModel):
                 raise ValueError("segments must be sorted by start time")
         return segments
     
+    # sound layer의 timestamp가 현재 track time에 포함되는지 확인
     @model_validator(mode="after")
     def validate_sound_layers_inside_track(self) -> "BackgroundTrackModel":
         for layer in self.sound_layers:
             if layer.sound_type == "onset":
                 for onset in layer.onsets:
                     if not _onset_is_inside_parent(self.segments, onset):
-                        raise ValueError("sound layer onset must be inside parent track segments")
-                    
+                        raise ValueError("sound layer onset must be inside parent track segments")      
             elif layer.sound_type == "continuous":
                 for segment in layer.segments:
                     if not _segment_is_inside_parent(self.segments, segment):
-                        raise ValueError("sound layer continuous must be inside parent track segments")
-            
+                        raise ValueError("sound layer continuous must be inside parent track segments")        
+        return self
+    
+    # sound layers의 preferrend generation model이 하나라도 V2A라면, 전체 track 생성 모델을 V2A로 지정
+    @model_validator(mode="after")
+    def validate_generation_model_routing(self) -> "BackgroundTrackModel":
+        if any(layer.preferred_generation_model == "v2a" for layer in self.sound_layers):
+            if self.generation_model != "v2a":
+                raise ValueError("parent generation_model must be v2a if any sound layer prefers v2a")
         return self
 
 
