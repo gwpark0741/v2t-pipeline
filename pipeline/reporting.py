@@ -20,6 +20,8 @@ def _build_track_row(
     description: str,
     segments: list[dict[str, float]],
     duration: float,
+    generation_model: str | None = None,
+    routing_reason: str | None = None,
 ) -> str:
     blocks: list[str] = []
     for segment in segments:
@@ -35,13 +37,29 @@ def _build_track_row(
             """
         )
 
+    routing_badge = ""
+    routing_detail = ""
+    if generation_model:
+        routing_badge = (
+            f'<span class="routing-badge routing-badge-{escape(generation_model)}">'
+            f'{escape(generation_model)}</span>'
+        )
+        if routing_reason:
+            routing_detail = (
+                f'<div class="routing-reason">Route: {escape(routing_reason)}</div>'
+            )
+
     return f"""
     <div class="track-row">
       <div class="track-meta">
         <div class="track-id track-id-{track_kind}">{escape(track_id)}</div>
         <div class="track-label">{escape(label)}</div>
-        <div class="track-kind">{escape(track_kind)}</div>
+        <div class="track-badges">
+          <span class="track-kind">{escape(track_kind)}</span>
+          {routing_badge}
+        </div>
         <div class="track-description">{escape(description)}</div>
+        {routing_detail}
       </div>
       <div class="track-lane">
         {''.join(blocks)}
@@ -97,6 +115,8 @@ def _build_layer_row(
     sound_type = layer.get("sound_type", "unknown")
     layer_label = layer.get("layer_label", "unknown_layer")
     description = layer.get("description", "")
+    preferred_generation_model = layer.get("preferred_generation_model")
+    routing_reason = layer.get("routing_reason")
     layer_kind_class = f"{track_kind}-{sound_type}"
 
     if sound_type == "onset":
@@ -113,6 +133,18 @@ def _build_layer_row(
         layer_blocks = ""
         timing_summary = "unknown timing"
 
+    routing_badge = ""
+    routing_detail = ""
+    if preferred_generation_model:
+        routing_badge = (
+            f'<span class="routing-badge routing-badge-{escape(preferred_generation_model)}">'
+            f'{escape(preferred_generation_model)}</span>'
+        )
+        if routing_reason:
+            routing_detail = (
+                f'<div class="routing-reason">Route: {escape(routing_reason)}</div>'
+            )
+
     return f"""
     <div class="layer-row layer-row-{track_kind}">
       <div class="track-meta layer-meta">
@@ -121,8 +153,10 @@ def _build_layer_row(
         <div class="layer-badges">
           <span class="layer-type layer-type-{escape(sound_type)}">{escape(sound_type)}</span>
           <span class="layer-count">{escape(timing_summary)}</span>
+          {routing_badge}
         </div>
         <div class="track-description">{escape(description)}</div>
+        {routing_detail}
       </div>
       <div class="track-lane layer-lane layer-lane-{escape(layer_kind_class)}">
         {layer_blocks}
@@ -139,6 +173,8 @@ def _build_layer_group(
     segments: list[dict[str, float]],
     layers: list[dict[str, Any]],
     duration: float,
+    generation_model: str | None = None,
+    routing_reason: str | None = None,
 ) -> str:
     parent_row = _build_track_row(
         track_kind=track_kind,
@@ -147,6 +183,8 @@ def _build_layer_group(
         description=description,
         segments=segments,
         duration=duration,
+        generation_model=generation_model,
+        routing_reason=routing_reason,
     ).replace('class="track-row"', 'class="track-row layer-parent-row"', 1)
 
     if not layers:
@@ -207,6 +245,8 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
                 description=track["description"],
                 segments=track["segments"],
                 duration=duration,
+                generation_model=track.get("generation_model"),
+                routing_reason=track.get("routing_reason"),
             )
         )
         layer_groups.append(
@@ -218,6 +258,8 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
                 segments=track["segments"],
                 layers=track.get("sound_layers", []),
                 duration=duration,
+                generation_model=track.get("generation_model"),
+                routing_reason=track.get("routing_reason"),
             )
         )
     for track in background_tracks:
@@ -229,6 +271,8 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
                 description=track["description"],
                 segments=track["segments"],
                 duration=duration,
+                generation_model=track.get("generation_model"),
+                routing_reason=track.get("routing_reason"),
             )
         )
         layer_groups.append(
@@ -240,6 +284,8 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
                 segments=track["segments"],
                 layers=track.get("sound_layers", []),
                 duration=duration,
+                generation_model=track.get("generation_model"),
+                routing_reason=track.get("routing_reason"),
             )
         )
 
@@ -498,9 +544,16 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
       font-size: 0.98rem;
     }}
 
+    .track-badges {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+      align-items: center;
+    }}
+
     .track-kind {{
       display: inline-block;
-      margin-top: 6px;
       padding: 3px 8px;
       border-radius: 999px;
       font-size: 0.75rem;
@@ -515,6 +568,37 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
       color: var(--muted);
       font-size: 0.86rem;
       line-height: 1.45;
+    }}
+
+    .routing-reason {{
+      margin-top: 6px;
+      padding: 7px 9px;
+      border: 1px solid rgba(214, 203, 187, 0.85);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.58);
+      color: #5b5147;
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }}
+
+    .routing-badge {{
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: white;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24);
+    }}
+
+    .routing-badge-t2a {{
+      background: linear-gradient(135deg, #5b6f95, #7692bf);
+    }}
+
+    .routing-badge-v2a {{
+      background: linear-gradient(135deg, #8b3f17, #d46b2c);
     }}
 
     .track-lane {{
