@@ -113,6 +113,7 @@ def _build_layer_row(
     duration: float,
 ) -> str:
     sound_type = layer.get("sound_type", "unknown")
+    layer_id = layer.get("layer_id")
     layer_label = layer.get("layer_label", "unknown_layer")
     description = layer.get("description", "")
     preferred_generation_model = layer.get("preferred_generation_model")
@@ -153,10 +154,14 @@ def _build_layer_row(
             f'{escape(timestamp_confidence)} confidence</span>'
         )
 
+    layer_id_ref = ""
+    if layer_id:
+        layer_id_ref = f'<div class="layer-id-ref">{escape(layer_id)}</div>'
+
     return f"""
     <div class="layer-row layer-row-{track_kind}">
       <div class="track-meta layer-meta">
-        <div class="layer-parent-ref">{escape(track_id)}</div>
+        {layer_id_ref}
         <div class="track-label">{escape(layer_label)}</div>
         <div class="layer-badges">
           <span class="layer-type layer-type-{escape(sound_type)}">{escape(sound_type)}</span>
@@ -731,14 +736,14 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
       border-left-color: rgba(179, 107, 0, 0.5);
     }}
 
-    .layer-parent-ref {{
+    .layer-id-ref {{
       margin-bottom: 6px;
-      color: var(--muted);
+      color: #3f3831;
       font-family: ui-monospace, "SFMono-Regular", "SF Mono", "Menlo", "Consolas", monospace;
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      font-size: 0.76rem;
+      font-weight: 900;
+      line-height: 1.25;
+      word-break: break-word;
     }}
 
     .layer-badges {{

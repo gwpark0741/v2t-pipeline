@@ -5,15 +5,29 @@ from clients.gemini_client import generate_structured_response
 from pipeline.state import PipelineState
 
 
-def attach_track_ids(validated_dict: dict) -> dict:
-    """검증된 트랙 데이터에 고유한 track_id를 부여하는 함수 (track_id는 'act_001', 'bg_001' 형식으로 생성) -> track_id가 부여된 딕셔너리 반환"""
+def _attach_layer_ids(track: dict) -> None:
+    """track 내부 sound_layers에 parent track_id 기반 layer_id를 부여한다."""
+    track_id = track["track_id"]
+    for index, layer in enumerate(track.get("sound_layers", []), start=1):
+        layer["layer_id"] = f"{track_id}_layer_{index:03d}"
+
+
+def attach_track_and_layer_ids(validated_dict: dict) -> dict:
+    """검증된 트랙 데이터에 track_id와 layer_id를 부여한 딕셔너리를 반환한다."""
     for index, track in enumerate(validated_dict["action_tracks"], start=1):
         track["track_id"] = f"act_{index:03d}"
+        _attach_layer_ids(track)
 
     for index, track in enumerate(validated_dict["background_tracks"], start=1):
         track["track_id"] = f"bg_{index:03d}"
+        _attach_layer_ids(track)
 
-    return validated_dict # track_id가 부여된 딕셔너리
+    return validated_dict
+
+
+def attach_track_ids(validated_dict: dict) -> dict:
+    """Backward-compatible wrapper for callers that still import the old name."""
+    return attach_track_and_layer_ids(validated_dict)
 
 
 def run_track_extraction(state: PipelineState) -> dict:
@@ -32,7 +46,7 @@ def run_track_extraction(state: PipelineState) -> dict:
     )
     
     validated_dict = structured_output.model_dump()
-    validated_dict = attach_track_ids(validated_dict)
+    validated_dict = attach_track_and_layer_ids(validated_dict)
 
     return {
         "raw_json_payload": raw_json_payload,

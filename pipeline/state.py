@@ -15,6 +15,7 @@ TimestampConfidence = Literal["high", "medium", "low"]
 
 
 class OnsetSoundLayer(TypedDict):
+    layer_id: str
     layer_label: str
     sound_type: Literal["onset"]
     onsets: list[float]
@@ -25,6 +26,7 @@ class OnsetSoundLayer(TypedDict):
 
 
 class ContinuousSoundLayer(TypedDict):
+    layer_id: str
     layer_label: str
     sound_type: Literal["continuous"]
     segments: list[TimeSegment]
