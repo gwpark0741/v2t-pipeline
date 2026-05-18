@@ -1,67 +1,57 @@
 # v2t-single
 
-비디오를 입력으로 받아 사운드 트랙 구조를 추출하고, 결과를 JSON과 HTML 보고서로 저장하는 파이프라인입니다.
+비디오를 Gemini로 분석해 사운드 트랙 구조를 추출하고, 결과를 JSON과 HTML 보고서로 저장하는 파이프라인입니다.
 
-현재 구현은 전체 비디오를 한 번에 분석하는 Phase 1 베이스라인에 해당합니다.
+현재 구현은 전체 비디오를 한 번에 분석하는 single-call baseline입니다. 단일 실행 모드와 Gemini Batch API 기반 대량 처리 모드를 함께 지원합니다.
 
-## 프로젝트 목적
+## 주요 기능
 
-이 프로젝트는 비디오를 보고 다음과 같은 정보를 구조화하는 것을 목표로 합니다.
-
-- 전경 중심의 액션 사운드 트랙
-- 배경 중심의 앰비언스 트랙
-- 각 트랙의 시간 구간
-- 각 트랙의 설명
-
-결과는 사람이 검토하기 쉬운 보고서와, 후속 처리에 사용할 수 있는 JSON 형태로 저장됩니다.
-
-## 현재 파이프라인
-
-```mermaid
-flowchart TD
-    A[run.py] --> B[초기 상태 생성]
-    B --> C[preprocessing]
-    C --> D[build_prompt]
-    D --> E[track_extraction]
-    E --> F[reporting]
-    F --> G[tracks.json]
-    F --> H[report.html]
-    F --> I[videos/원본영상]
-```
+- 단일 비디오, 디렉토리, 재귀 디렉토리 입력 지원
+- Gemini File API 기반 비디오 업로드
+- `video_fps`를 포함한 Gemini video metadata 전달
+- prompt profile 기반 프롬프트 선택
+- structured output schema 검증
+- action/background track 및 sound layer 추출
+- T2A/V2A generation model routing 정보 생성
+- JSON 결과와 HTML 보고서 저장
+- Gemini Batch API prepare/submit/collect workflow 지원
+- LangSmith trace에 Gemini token usage 기록
 
 ## 처리 흐름
 
-### 1. preprocessing
+### Single Run
 
-- 비디오 경로를 확인합니다.
-- 비디오 길이를 추출합니다.
-- 필요 시 작업용 비디오를 준비합니다.
-- 분석에 사용할 입력 정보를 정리합니다.
+```mermaid
+flowchart TD
+    A[run.py] --> B[config.yaml 로드]
+    B --> C[비디오 파일 수집]
+    C --> D[preprocessing]
+    D --> E[build_prompt]
+    E --> F[track_extraction]
+    F --> G[tracks.json]
+    F --> H[report.html]
+```
 
-### 2. build_prompt
+### Batch Run
 
-- 설정값에 따라 사용할 프롬프트 프로파일을 선택합니다.
-- 시스템 프롬프트와 유저 프롬프트를 생성합니다.
-- 비디오 길이를 프롬프트에 반영합니다.
-
-### 3. track_extraction
-
-- 전체 비디오를 기준으로 사운드 트랙을 추출합니다.
-- `action_tracks`와 `background_tracks`를 생성합니다.
-- 같은 사운드는 여러 구간으로 나뉘어도 하나의 트랙으로 유지하고 `segments`로 정리합니다.
-- 각 트랙에는 `track_id`가 부여됩니다.
-
-### 4. reporting
-
-- 결과를 `tracks.json`으로 저장합니다.
-- 비디오와 타임라인이 함께 보이는 `report.html`을 생성합니다.
-- 공유를 위해 원본 비디오를 결과 폴더 안에 함께 저장합니다.
+```mermaid
+flowchart TD
+    A[batch_prepare.py] --> B[비디오 전처리 및 File API 업로드]
+    B --> C[manifest.jsonl 생성]
+    C --> D[request chunk JSONL 생성]
+    D --> E[batch_submit.py]
+    E --> F[Gemini Batch Job 생성]
+    F --> G[batch_collect.py]
+    G --> H[Batch output 다운로드]
+    H --> I[tracks.json/report.html 저장]
+```
 
 ## 프로젝트 구조
 
 ```text
 .
 ├── clients/
+│   ├── gemini_batch_client.py
 │   └── gemini_client.py
 ├── pipeline/
 │   ├── graph.py
@@ -73,46 +63,84 @@ flowchart TD
 │       ├── preprocessing.py
 │       └── track_extraction.py
 ├── prompts/
+│   ├── prompts_registry.py
+│   ├── single.py
 │   ├── single_audio.py
-│   └── single.py
+│   ├── single_layering.py
+│   ├── single_layering_model_routing.py
+│   └── single_layering_model_routing_t2a_biased.py
 ├── tools/
 │   └── video_utils.py
+├── batch_collect.py
+├── batch_prepare.py
+├── batch_submit.py
 ├── config.py
 ├── config.yaml
-├── run.py
 ├── rebuild_report.py
+├── run.py
 └── README.md
 ```
 
-## 환경 설정
+## 설치
 
-### uv 설치
+`uv`가 없다면 먼저 설치합니다.
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
-source $HOME/.local/bin/env
+source "$HOME/.local/bin/env"
 ```
 
-### 의존성 설치
-
-프로젝트 루트에서 가상환경과 의존성을 준비합니다.
+프로젝트 루트에서 의존성을 설치합니다.
 
 ```bash
 uv sync
 ```
 
-### 환경 변수 설정
+## 환경 변수
 
-`.env` 파일에 API 키를 설정합니다.
+`.env.example`을 참고해 `.env`를 준비합니다.
 
 ```bash
 GEMINI_API_KEY=your_gemini_key
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=your_langsmith_key
-LANGCHAIN_PROJECT=v2t-single
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=your_langsmith_key
+LANGSMITH_PROJECT=v2t-single
 ```
 
-## 실행
+LangSmith tracing을 사용하지 않으려면 `LANGSMITH_TRACING=false`로 설정합니다.
+
+## 설정
+
+기본 설정은 `config.yaml`에서 관리합니다.
+
+```yaml
+mode: "single"
+model: "gemini-2.5-pro"
+output_dir: "results"
+temperature: 0.0
+seed: 42
+
+options:
+  use_audio: false
+  use_scene_detect: false
+  use_hitl: false
+  save_intermediate: true
+  input_mode: "file_api"
+  video_fps: 5
+  use_sound_layering: true
+  prompt_profile: "single_layering_model_routing"
+```
+
+지원 prompt profile:
+
+- `single`
+- `single_audio`
+- `single_layering`
+- `single_layering_model_routing`
+
+현재 baseline에서는 `input_mode: "file_api"`만 지원합니다.
+
+## Single 실행
 
 단일 비디오 실행:
 
@@ -132,75 +160,214 @@ uv run python run.py --video videos/
 uv run python run.py --video videos/ --recursive
 ```
 
-## 출력 결과
+모델 또는 temperature를 실행 시 덮어쓰기:
 
-단일 비디오 실행 결과는 `results/<run_id>/` 아래에 저장됩니다.
-
-예시:
-
-```text
-results/20260512_202444/
-├── report.html
-├── tracks.json
-└── videos/
-    └── your_video.mp4
+```bash
+uv run python run.py \
+  --video videos/your_video.mp4 \
+  --model gemini-2.5-pro \
+  --temperature 0.0
 ```
 
-디렉토리 입력으로 여러 영상을 실행한 경우에는 입력 디렉토리의 최하위 이름으로 상위 폴더를 만들고, 그 아래에 각 run 결과를 저장합니다.
+다른 config 파일 사용:
 
-예시:
+```bash
+uv run python run.py --video videos/your_video.mp4 --config config.yaml
+```
+
+## Batch 실행
+
+Batch 처리는 3단계로 나뉩니다.
+
+### 1. 요청 준비
+
+비디오 전처리, Gemini File API 업로드, manifest 및 request chunk를 생성합니다.
+
+```bash
+uv run python batch_prepare.py \
+  --video videos/ \
+  --batch-name my_batch \
+  --chunk-size 200
+```
+
+재귀 탐색:
+
+```bash
+uv run python batch_prepare.py \
+  --video videos/ \
+  --batch-name my_batch \
+  --recursive
+```
+
+테스트용 일부만 준비:
+
+```bash
+uv run python batch_prepare.py \
+  --video videos/ \
+  --batch-name my_batch \
+  --max-videos 10
+```
+
+기존 manifest를 재사용:
+
+```bash
+uv run python batch_prepare.py \
+  --video videos/ \
+  --batch-name my_batch \
+  --resume
+```
+
+### 2. Batch job 제출
+
+생성된 request chunk를 Gemini Batch API에 제출합니다.
+
+```bash
+uv run python batch_submit.py --batch-dir results/my_batch/batch
+```
+
+특정 chunk만 제출:
+
+```bash
+uv run python batch_submit.py \
+  --batch-dir results/my_batch/batch \
+  --chunk chunk_0001
+```
+
+이미 job 파일이 있어도 다시 제출:
+
+```bash
+uv run python batch_submit.py \
+  --batch-dir results/my_batch/batch \
+  --chunk chunk_0001 \
+  --force-resubmit
+```
+
+### 3. Batch 결과 수집
+
+완료된 job의 output을 내려받고, 각 비디오별 `tracks.json`과 `report.html`을 생성합니다.
+
+```bash
+uv run python batch_collect.py --batch-dir results/my_batch/batch
+```
+
+job이 끝날 때까지 polling:
+
+```bash
+uv run python batch_collect.py \
+  --batch-dir results/my_batch/batch \
+  --poll \
+  --poll-interval 60
+```
+
+특정 chunk만 수집:
+
+```bash
+uv run python batch_collect.py \
+  --batch-dir results/my_batch/batch \
+  --chunk chunk_0001
+```
+
+### 실패 항목 재시도
+
+`batch_collect.py`가 만든 `failed.jsonl`을 이용해 retry request chunk를 만들 수 있습니다.
+
+```bash
+uv run python batch_prepare.py \
+  --batch-name my_batch \
+  --resume \
+  --retry-failed results/my_batch/batch/failed.jsonl
+```
+
+생성된 `retry_*.jsonl`도 `batch_submit.py`, `batch_collect.py`의 `--chunk` 옵션으로 동일하게 처리합니다.
+
+## 출력 결과
+
+Single 실행에서 파일 하나를 입력하면 `results/<input-file-name>/<run_id>/` 아래에 결과가 저장됩니다.
 
 ```text
-results/videos/
-├── 20260512_202444_your_video_01/
-│   ├── report.html
-│   ├── tracks.json
-│   └── videos/
-│       └── your_video_01.mp4
-└── 20260512_202512_your_video_02/
+results/your_video.mp4/
+└── 20260518_162830_your_video/
     ├── report.html
     ├── tracks.json
     └── videos/
-        └── your_video_02.mp4
+        └── your_video.mp4
 ```
 
-### `tracks.json`
+디렉토리 입력은 입력 디렉토리 이름을 상위 폴더로 사용합니다.
 
-다음과 같은 구조화 결과를 담습니다.
+```text
+results/videos/
+├── 20260518_162830_01/
+│   ├── report.html
+│   ├── tracks.json
+│   └── videos/
+│       └── 01.mp4
+└── 20260518_162905_02/
+    ├── report.html
+    ├── tracks.json
+    └── videos/
+        └── 02.mp4
+```
 
-- 입력 메타데이터
-- 추출된 트랙 정보
-- 트랙 설명
-- 시간 구간 정보
+Batch 실행은 `results/<batch-name>/batch/` 아래에 batch 관리 파일을 저장하고, 각 비디오별 결과는 `results/<batch-name>/<run_id>/` 아래에 저장합니다.
 
-### `report.html`
+```text
+results/my_batch/
+├── batch/
+│   ├── manifest.jsonl
+│   ├── requests/
+│   │   └── chunk_0001.jsonl
+│   ├── jobs/
+│   │   ├── chunk_0001.job.json
+│   │   └── index.jsonl
+│   ├── outputs/
+│   │   └── chunk_0001.results.jsonl
+│   └── failed.jsonl
+└── video_000001_your_video/
+    ├── report.html
+    ├── tracks.json
+    └── videos/
+        └── your_video.mp4
+```
 
-다음 내용을 시각적으로 확인할 수 있습니다.
+`tracks.json`에는 실행 메타데이터, 비디오 정보, Gemini raw JSON payload, 검증된 action/background tracks가 저장됩니다.
 
-- 비디오 재생
-- 트랙 목록
-- 시간 구간 타임라인
-- 재생 위치와 동기화된 playhead
+`report.html`에서는 비디오, 트랙 목록, sound layer, routing badge, segment timeline, 재생 위치와 동기화되는 playhead를 확인할 수 있습니다.
 
-## 보고서만 다시 생성하기
+## 보고서 재생성
 
-이미 `tracks.json`이 있으면, 전체 파이프라인을 다시 돌리지 않고 보고서만 재생성할 수 있습니다.
+이미 생성된 `tracks.json`이 있으면 Gemini를 다시 호출하지 않고 HTML 보고서만 재생성할 수 있습니다.
 
 ```bash
-uv run python rebuild_report.py --input results/<run_id>/tracks.json
+uv run python rebuild_report.py --input results/<path-to-run>/tracks.json
 ```
 
-## 현재 범위
+출력 경로 지정:
 
-현재 구현은 다음 범위에 집중합니다.
+```bash
+uv run python rebuild_report.py \
+  --input results/<path-to-run>/tracks.json \
+  --output results/<path-to-run>/report.html
+```
 
-- 전체 비디오 단일 분석
-- 비디오당 gemini 호출 1회
-- 같은 사운드를 동일 track으로 생성 (track내 segments로 관리)
-- 결과 보고서 생성
+## LangSmith Tracing
 
-## 향후 계획
+`clients/gemini_client.py`의 single Gemini 호출은 LangSmith `traceable(run_type="llm")`로 감싸져 있습니다. Gemini 응답의 `usage_metadata`를 LangSmith usage schema로 변환해 trace에 기록합니다.
 
-1. 프롬프트 고도화 및 멀티트랙 생성 품질 개선
-2. cut 분할 도입
-3. HITL 기반 결과 재배치 UI 확장
+LangSmith cost 표시에는 아래 값이 사용됩니다.
+
+- `ls_provider`: `google_genai`
+- `ls_model_name`: 실행 모델명
+- `usage_metadata.input_tokens`
+- `usage_metadata.output_tokens`
+- `usage_metadata.total_tokens`
+
+LangSmith 웹 UI에서 cost가 보이려면 pricing map에 해당 provider/model 조합이 매칭되어야 합니다. 매칭되지 않으면 token usage는 남지만 cost가 비어 있을 수 있습니다.
+
+현재 batch collect 경로는 Gemini Batch API 결과를 로컬 산출물로 변환하며, single 호출처럼 LangSmith LLM run을 직접 생성하지는 않습니다.
+
+## 개발 메모
+
+- `.env`, `videos/`, `results/`, `samples/`는 git에 포함하지 않습니다.
+- `use_scene_detect`, `use_hitl`, `input_mode: "frames"`는 설정 필드는 있지만 현재 baseline 구현 범위 밖입니다.
+- `use_sound_layering`은 legacy 옵션이며, 실제 프롬프트 선택은 `prompt_profile`을 우선 사용합니다.
