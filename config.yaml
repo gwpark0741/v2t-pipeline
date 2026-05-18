@@ -10,3 +10,6 @@ options:
   use_hitl: false
   save_intermediate: true
   input_mode: "file_api"
+  video_fps: 5
+  use_sound_layering: true  # legacy
+  prompt_profile: "single_layering_model_routing"

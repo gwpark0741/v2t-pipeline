@@ -2,14 +2,18 @@ from dataclasses import dataclass, field
 from typing import Literal
 import yaml
 
+from prompts.prompts_registry import PromptProfile
 
 @dataclass
 class PipelineOptions:
-    use_audio: bool = False                                    # 오디오 트랙 포함 여부
+    use_audio: bool = False                                   # 오디오 트랙 포함 여부
     use_scene_detect: bool = False                            # 컷 자동 감지 (Phase 2)
     use_hitl: bool = False                                    # Human in the Loop (Phase 2)
     save_intermediate: bool = True                            # 중간 결과 저장
     input_mode: Literal["file_api", "frames"] = "file_api"    # 영상 입력 방식
+    video_fps: float | None = None
+    use_sound_layering: bool = True                          # legacy
+    prompt_profile: PromptProfile = "single_layering_model_routing" # 사용할 프롬프트
 
 
 @dataclass

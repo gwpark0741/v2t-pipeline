@@ -1,4 +1,3 @@
-import json
 import os
 
 
@@ -27,6 +26,7 @@ def run_track_extraction(state: PipelineState) -> dict:
         system_prompt=state["system_prompt"],
         file_uri=state["file_uri"],
         model_name=state["model"],
+        video_fps=state["video_fps"],
         temperature=state["temperature"],
         seed=state["seed"],
     )

@@ -1,6 +1,6 @@
 # v2t-single
 
-비디오 1개를 입력으로 받아 사운드 트랙 구조를 추출하고, 결과를 JSON과 HTML 보고서로 저장하는 파이프라인입니다.
+비디오를 입력으로 받아 사운드 트랙 구조를 추출하고, 결과를 JSON과 HTML 보고서로 저장하는 파이프라인입니다.
 
 현재 구현은 전체 비디오를 한 번에 분석하는 Phase 1 베이스라인에 해당합니다.
 
@@ -21,11 +21,12 @@
 flowchart TD
     A[run.py] --> B[초기 상태 생성]
     B --> C[preprocessing]
-    C --> D[track_extraction]
-    D --> E[reporting]
-    E --> F[tracks.json]
-    E --> G[report.html]
-    E --> H[videos/원본영상]
+    C --> D[build_prompt]
+    D --> E[track_extraction]
+    E --> F[reporting]
+    F --> G[tracks.json]
+    F --> H[report.html]
+    F --> I[videos/원본영상]
 ```
 
 ## 처리 흐름
@@ -37,14 +38,20 @@ flowchart TD
 - 필요 시 작업용 비디오를 준비합니다.
 - 분석에 사용할 입력 정보를 정리합니다.
 
-### 2. track_extraction
+### 2. build_prompt
+
+- 설정값에 따라 사용할 프롬프트 프로파일을 선택합니다.
+- 시스템 프롬프트와 유저 프롬프트를 생성합니다.
+- 비디오 길이를 프롬프트에 반영합니다.
+
+### 3. track_extraction
 
 - 전체 비디오를 기준으로 사운드 트랙을 추출합니다.
 - `action_tracks`와 `background_tracks`를 생성합니다.
 - 같은 사운드는 여러 구간으로 나뉘어도 하나의 트랙으로 유지하고 `segments`로 정리합니다.
 - 각 트랙에는 `track_id`가 부여됩니다.
 
-### 3. reporting
+### 4. reporting
 
 - 결과를 `tracks.json`으로 저장합니다.
 - 비디오와 타임라인이 함께 보이는 `report.html`을 생성합니다.
@@ -62,9 +69,11 @@ flowchart TD
 │   ├── schema.py
 │   ├── state.py
 │   └── nodes/
+│       ├── build_prompt.py
 │       ├── preprocessing.py
 │       └── track_extraction.py
 ├── prompts/
+│   ├── single_audio.py
 │   └── single.py
 ├── tools/
 │   └── video_utils.py
@@ -75,6 +84,34 @@ flowchart TD
 └── README.md
 ```
 
+## 환경 설정
+
+### uv 설치
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+```
+
+### 의존성 설치
+
+프로젝트 루트에서 가상환경과 의존성을 준비합니다.
+
+```bash
+uv sync
+```
+
+### 환경 변수 설정
+
+`.env` 파일에 API 키를 설정합니다.
+
+```bash
+GEMINI_API_KEY=your_gemini_key
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=your_langsmith_key
+LANGCHAIN_PROJECT=v2t-single
+```
+
 ## 실행
 
 단일 비디오 실행:
@@ -83,17 +120,21 @@ flowchart TD
 uv run python run.py --video videos/your_video.mp4
 ```
 
-폴더 내 여러 영상 실행:
+디렉토리 내 여러 영상 실행:
 
 ```bash
-for video in videos/*.mp4; do
-  uv run python run.py --video "$video"
-done
+uv run python run.py --video videos/
+```
+
+하위 디렉토리까지 재귀적으로 실행:
+
+```bash
+uv run python run.py --video videos/ --recursive
 ```
 
 ## 출력 결과
 
-실행 결과는 `results/<run_id>/` 아래에 저장됩니다.
+단일 비디오 실행 결과는 `results/<run_id>/` 아래에 저장됩니다.
 
 예시:
 
@@ -103,6 +144,24 @@ results/20260512_202444/
 ├── tracks.json
 └── videos/
     └── your_video.mp4
+```
+
+디렉토리 입력으로 여러 영상을 실행한 경우에는 입력 디렉토리의 최하위 이름으로 상위 폴더를 만들고, 그 아래에 각 run 결과를 저장합니다.
+
+예시:
+
+```text
+results/videos/
+├── 20260512_202444_your_video_01/
+│   ├── report.html
+│   ├── tracks.json
+│   └── videos/
+│       └── your_video_01.mp4
+└── 20260512_202512_your_video_02/
+    ├── report.html
+    ├── tracks.json
+    └── videos/
+        └── your_video_02.mp4
 ```
 
 ### `tracks.json`
@@ -136,9 +195,8 @@ uv run python rebuild_report.py --input results/<run_id>/tracks.json
 현재 구현은 다음 범위에 집중합니다.
 
 - 전체 비디오 단일 분석
-- 비디오당 트랙 추출 1회
-- scene-aware prompt 기반 트랙 추출
-- 같은 사운드의 multi-segment 정리
+- 비디오당 gemini 호출 1회
+- 같은 사운드를 동일 track으로 생성 (track내 segments로 관리)
 - 결과 보고서 생성
 
 ## 향후 계획
