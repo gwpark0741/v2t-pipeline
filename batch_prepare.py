@@ -96,6 +96,7 @@ def build_initial_state(
         "use_audio": config.options.use_audio,
         "input_mode": config.options.input_mode,
         "video_fps": config.options.video_fps,
+        "use_scene_detect": config.options.use_scene_detect,
         "use_sound_layering": config.options.use_sound_layering,
         "prompt_profile": config.options.prompt_profile,
         "run_id": run_id,
@@ -186,10 +187,22 @@ def prepare_entry(
     state = build_initial_state(video_path, run_id, config)
 
     if dry_run:
-        from tools.video_utils import get_duration
+        from tools.video_utils import (
+            detect_scene_cuts,
+            format_scene_cuts_for_prompt,
+            get_duration,
+        )
 
+        video_duration = get_duration(str(video_path))
+        scene_cuts = (
+            detect_scene_cuts(str(video_path), video_duration)
+            if state["use_scene_detect"]
+            else []
+        )
         preprocessing = {
-            "video_duration": get_duration(str(video_path)),
+            "video_duration": video_duration,
+            "scene_cuts": scene_cuts,
+            "scene_cuts_prompt": format_scene_cuts_for_prompt(scene_cuts),
             "working_video_path": str(video_path),
             "file_uri": f"dry-run://{key}",
             "file_name": f"dry-run/{key}",
@@ -208,6 +221,8 @@ def prepare_entry(
         "run_id": run_id,
         "output_root": str(output_root),
         "video_duration": state["video_duration"],
+        "scene_cuts": state.get("scene_cuts", []),
+        "scene_cuts_prompt": state.get("scene_cuts_prompt"),
         "working_video_path": state["working_video_path"],
         "file_uri": state["file_uri"],
         "file_name": state["file_name"],
@@ -217,6 +232,7 @@ def prepare_entry(
         "use_audio": state["use_audio"],
         "input_mode": state["input_mode"],
         "video_fps": state["video_fps"],
+        "use_scene_detect": state["use_scene_detect"],
         "use_sound_layering": state["use_sound_layering"],
         "prompt_profile": state["prompt_profile"],
         "system_prompt": state["system_prompt"],

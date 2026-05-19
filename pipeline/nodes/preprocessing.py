@@ -3,7 +3,12 @@ from pathlib import Path
 
 from clients.gemini_client import get_client, upload_video
 from pipeline.state import PipelineState
-from tools.video_utils import get_duration, strip_audio
+from tools.video_utils import (
+    detect_scene_cuts,
+    format_scene_cuts_for_prompt,
+    get_duration,
+    strip_audio,
+)
 
 
 def resolve_working_video_path(video_path: str, use_audio: bool) -> str:
@@ -21,6 +26,13 @@ def run_preprocessing(state: PipelineState) -> dict:
         raise FileNotFoundError(f"Video file not found: {video_path}")
 
     video_duration = get_duration(video_path)
+    scene_cuts = (
+        detect_scene_cuts(video_path, video_duration)
+        if state["use_scene_detect"]
+        else []
+    )
+    scene_cuts_prompt = format_scene_cuts_for_prompt(scene_cuts)
+
     working_video_path = resolve_working_video_path(
         video_path=video_path,
         use_audio=state["use_audio"],
@@ -38,6 +50,8 @@ def run_preprocessing(state: PipelineState) -> dict:
 
     return {
         "video_duration": video_duration,
+        "scene_cuts": scene_cuts,
+        "scene_cuts_prompt": scene_cuts_prompt,
         "working_video_path": working_video_path,
         "file_uri": file_uri,
         "file_name": file_name,

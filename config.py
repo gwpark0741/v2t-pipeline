@@ -7,7 +7,7 @@ from prompts.prompts_registry import PromptProfile
 @dataclass
 class PipelineOptions:
     use_audio: bool = False                                   # 오디오 트랙 포함 여부
-    use_scene_detect: bool = False                            # 컷 자동 감지 (Phase 2)
+    use_scene_detect: bool = True                             # PySceneDetect 기반 컷 자동 감지
     use_hitl: bool = False                                    # Human in the Loop (Phase 2)
     save_intermediate: bool = True                            # 중간 결과 저장
     input_mode: Literal["file_api", "frames"] = "file_api"    # 영상 입력 방식

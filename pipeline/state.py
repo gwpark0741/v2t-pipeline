@@ -7,6 +7,12 @@ class TimeSegment(TypedDict):
     end: float
 
 
+class SceneCut(TypedDict):
+    cut_id: str
+    start: float
+    end: float
+
+
 # Model routing 결과 - 실제 오디오를 생성할 모델 선정 정보
 GenerationModel = Literal["t2a", "v2a"]
 
@@ -69,11 +75,14 @@ class PipelineState(TypedDict):
     use_audio: bool
     input_mode: Literal["file_api", "frames"]
     video_fps: float | None
+    use_scene_detect: bool
     use_sound_layering: bool
     prompt_profile: PromptProfile
 
     # 전처리 결과: pipeline/nodes/preprocessing.py에서 설정
     video_duration: NotRequired[float]
+    scene_cuts: NotRequired[list[SceneCut]]
+    scene_cuts_prompt: NotRequired[str]
     working_video_path: NotRequired[str]    # 무음 처리된 영상의 임시 경로
     file_uri: NotRequired[str]
     file_name: NotRequired[str]

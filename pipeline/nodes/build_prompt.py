@@ -24,9 +24,17 @@ def load_prompt_templates(
     return PROMPT_REGISTRY[profile]
 
 
-def render_user_prompt(user_prompt_template: str, duration: float) -> str:
-    """video 전처리에서 추출한 duration을 활용하여 user prompt를 생성하는 함수"""
-    return user_prompt_template.replace("__DURATION__", str(duration))
+def render_user_prompt(
+    user_prompt_template: str,
+    duration: float,
+    scene_cuts_prompt: str,
+) -> str:
+    """video 전처리에서 추출한 duration/cut 정보를 활용하여 user prompt를 생성하는 함수"""
+    return (
+        user_prompt_template
+        .replace("__DURATION__", str(duration))
+        .replace("__CUTS__", scene_cuts_prompt)
+    )
 
 
 def run_build_prompt(state: PipelineState) -> dict:
@@ -39,7 +47,11 @@ def run_build_prompt(state: PipelineState) -> dict:
     )
     
     system_prompt, user_prompt_template = load_prompt_templates(profile)
-    user_prompt = render_user_prompt(user_prompt_template, state["video_duration"])
+    user_prompt = render_user_prompt(
+        user_prompt_template,
+        state["video_duration"],
+        state.get("scene_cuts_prompt", "No external cut boundaries detected."),
+    )
 
     return {
         "prompt_profile": profile,
