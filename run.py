@@ -20,6 +20,7 @@ def parse_args():
     parser.add_argument("--recursive", action="store_true", help="Recursively search videos inside the input directory",)
     parser.add_argument("--config", default="config.yaml", help="Path to config yaml")
     parser.add_argument("--model", default=None, help="Optional model override")
+    parser.add_argument("--max-videos", type=int, default=None, help="Limit videos for testing")
     parser.add_argument(
         "--temperature",
         type=float,
@@ -86,6 +87,7 @@ def build_initial_state(
         "use_audio": config.options.use_audio,
         "input_mode": config.options.input_mode,
         "video_fps": config.options.video_fps,
+        "use_scene_detect": config.options.use_scene_detect,
         "use_sound_layering": config.options.use_sound_layering,
         "prompt_profile": config.options.prompt_profile,
         "run_id": make_run_id(video_path),
@@ -98,11 +100,16 @@ def main():
     load_dotenv() # .env 파일에서 환경 변수 로드
 
     args = parse_args() # 커맨드라인 인자 파싱
+    if args.max_videos is not None and args.max_videos <= 0:
+        raise ValueError("--max-videos must be a positive integer")
+
     config = PipelineConfig.from_yaml(args.config) # yaml 파일에서 파이프라인 설정 로드
 
     graph = build_graph()
 
     video_paths = collect_video_paths(args.video, recursive=args.recursive)
+    if args.max_videos is not None:
+        video_paths = video_paths[: args.max_videos]
 
     batch_output_root = make_batch_output_root(args.video, config.output_dir)
     batch_output_root.mkdir(parents=True, exist_ok=True)
