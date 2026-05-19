@@ -121,7 +121,7 @@ class ActionTrackModel(BaseModel):
     audio_type: Literal["sfx"]
     generation_model: GenerationModel
     routing_reason: str = Field(min_length=1)
-    sound_layers: list[SoundLayerModel] = Field(default_factory=list)
+    sound_layers: list[SoundLayerModel] = Field(min_length=1)
 
     # segments 리스트가 시간 순으로 정렬되어 있는지 검증하는 필드 검증기
     @field_validator("segments")
@@ -171,7 +171,7 @@ class BackgroundTrackModel(BaseModel):
     audio_type: Literal["ambience"]
     generation_model: GenerationModel
     routing_reason: str = Field(min_length=1)
-    sound_layers: list[SoundLayerModel] = Field(default_factory=list)
+    sound_layers: list[SoundLayerModel] = Field(min_length=1)
 
     # segments 리스트가 시간 순으로 정렬되어 있는지 검증하는 필드 검증기
     @field_validator("segments")
