@@ -78,6 +78,7 @@ flowchart TD
 ├── config.yaml
 ├── rebuild_report.py
 ├── run.py
+├── scene_detect_report.py
 └── README.md
 ```
 
@@ -122,7 +123,7 @@ seed: 42
 
 options:
   use_audio: false
-  use_scene_detect: false
+  use_scene_detect: true
   use_hitl: false
   save_intermediate: true
   input_mode: "file_api"
@@ -174,6 +175,35 @@ uv run python run.py \
 ```bash
 uv run python run.py --video videos/your_video.mp4 --config config.yaml
 ```
+
+## PySceneDetect 리포트
+
+Gemini 호출 없이 PySceneDetect만 실행하고, 컷별 클립과 HTML 보고서를 생성합니다.
+
+```bash
+uv run python scene_detect_report.py \
+  --video samples/vggsound_test/5PYzLVpPSXA_000070.mp4
+```
+
+과분할이 보이면 더 보수적인 preset을 사용합니다.
+
+```bash
+uv run python scene_detect_report.py \
+  --video samples/vggsound_test/5PYzLVpPSXA_000070.mp4 \
+  --preset conservative
+```
+
+Preset은 `high_recall`(threshold 27, min_scene_len 1), `balanced`(35, 6), `conservative`(45, 12)를 지원하며, `--threshold`, `--min-scene-len`으로 직접 덮어쓸 수 있습니다.
+
+디렉토리 입력도 지원합니다.
+
+```bash
+uv run python scene_detect_report.py \
+  --video samples/vggsound_test \
+  --max-videos 5
+```
+
+출력은 `results/scene_detect/<run_id>/<video>/report.html`, `scene_cuts.json`, `clips/cut_*.mp4`로 저장됩니다.
 
 ## Batch 실행
 
@@ -369,5 +399,6 @@ LangSmith 웹 UI에서 cost가 보이려면 pricing map에 해당 provider/model
 ## 개발 메모
 
 - `.env`, `videos/`, `results/`, `samples/`는 git에 포함하지 않습니다.
-- `use_scene_detect`, `use_hitl`, `input_mode: "frames"`는 설정 필드는 있지만 현재 baseline 구현 범위 밖입니다.
+- `use_scene_detect`가 켜져 있으면 PySceneDetect로 모델 입력 전에 cut id/start/end를 추출해 Gemini user prompt와 결과 JSON에 기록합니다.
+- `use_hitl`, `input_mode: "frames"`는 설정 필드는 있지만 현재 baseline 구현 범위 밖입니다.
 - `use_sound_layering`은 legacy 옵션이며, 실제 프롬프트 선택은 `prompt_profile`을 우선 사용합니다.
