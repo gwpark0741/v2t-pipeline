@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 
-from pipeline.reporting import rebuild_report_from_json
+from v2t_single.pipeline.reporting import rebuild_report_from_json
 
 
 def parse_args():

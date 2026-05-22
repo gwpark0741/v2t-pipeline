@@ -8,7 +8,7 @@ from typing import Any
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
-from clients.gemini_batch_client import (
+from v2t_single.clients.gemini_batch_client import (
     batch_job_to_dict,
     download_batch_output,
     extract_batch_error,
@@ -16,11 +16,11 @@ from clients.gemini_batch_client import (
     extract_batch_response_text,
     get_batch_job,
 )
-from clients.gemini_client import get_client
-from pipeline.nodes.track_extraction import attach_track_ids
-from pipeline.reporting import save_run_artifacts
-from pipeline.schema import TrackOutputModel
-from pipeline.state import PipelineState
+from v2t_single.clients.gemini_client import get_client
+from v2t_single.pipeline.nodes.track_extraction import attach_track_ids
+from v2t_single.pipeline.reporting import save_run_artifacts
+from v2t_single.pipeline.schema import TrackOutputModel
+from v2t_single.pipeline.state import PipelineState
 
 
 TERMINAL_STATES = {

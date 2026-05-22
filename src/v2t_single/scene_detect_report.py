@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from tools.video_utils import detect_scene_cuts, format_scene_cuts_for_prompt, get_duration
+from v2t_single.tools.video_utils import detect_scene_cuts, format_scene_cuts_for_prompt, get_duration
 
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi"}

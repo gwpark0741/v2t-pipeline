@@ -6,12 +6,12 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-from clients.gemini_batch_client import (
+from v2t_single.clients.gemini_batch_client import (
     batch_job_to_dict,
     create_batch_job,
     upload_jsonl_file,
 )
-from clients.gemini_client import get_client
+from v2t_single.clients.gemini_client import get_client
 
 
 def parse_args() -> argparse.Namespace:

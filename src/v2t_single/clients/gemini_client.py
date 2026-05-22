@@ -6,7 +6,7 @@ from google import genai
 from google.genai import types
 from pydantic import ValidationError
 
-from pipeline.schema import TrackOutputModel
+from v2t_single.pipeline.schema import TrackOutputModel
 
 
 def get_client(api_key: str) -> genai.Client:

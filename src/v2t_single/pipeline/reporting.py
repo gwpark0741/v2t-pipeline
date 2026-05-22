@@ -4,7 +4,7 @@ from html import escape
 from pathlib import Path
 from typing import Any, cast
 
-from pipeline.state import ActionTrack, BackgroundTrack, PipelineState
+from v2t_single.pipeline.state import ActionTrack, BackgroundTrack, PipelineState
 
 
 def _format_seconds(seconds: float) -> str:

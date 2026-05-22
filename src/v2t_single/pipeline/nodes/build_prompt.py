@@ -1,5 +1,5 @@
-from pipeline.state import PipelineState
-from prompts.prompts_registry import PromptProfile, PROMPT_REGISTRY
+from v2t_single.pipeline.state import PipelineState
+from v2t_single.prompts.prompts_registry import PromptProfile, PROMPT_REGISTRY
 
 
 def select_prompt_profile(

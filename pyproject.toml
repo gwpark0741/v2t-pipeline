@@ -14,7 +14,23 @@ dependencies = [
     "scenedetect>=0.7",
 ]
 
+[project.scripts]
+v2t-run = "v2t_single.run:main"
+v2t-parallel-run = "v2t_single.parallel_run:main"
+v2t-batch-prepare = "v2t_single.batch_prepare:main"
+v2t-batch-submit = "v2t_single.batch_submit:main"
+v2t-batch-collect = "v2t_single.batch_collect:main"
+v2t-rebuild-report = "v2t_single.rebuild_report:main"
+v2t-scene-detect-report = "v2t_single.scene_detect_report:main"
+
 [dependency-groups]
 dev = [
     "langgraph-cli[inmem]>=0.4.26",
 ]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

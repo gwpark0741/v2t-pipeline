@@ -1,6 +1,6 @@
 from typing import Literal
 
-from prompts import (
+from v2t_single.prompts import (
     single,
     single_audio,
     single_layering,

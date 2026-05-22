@@ -1,6 +1,6 @@
 from typing import Literal, NotRequired, TypedDict
 
-from prompts.prompts_registry import PromptProfile
+from v2t_single.prompts.prompts_registry import PromptProfile
 
 class TimeSegment(TypedDict):
     start: float

@@ -7,11 +7,11 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-from config import PipelineConfig
-from pipeline.nodes.build_prompt import run_build_prompt
-from pipeline.nodes.preprocessing import run_preprocessing
-from pipeline.schema import TrackOutputModel
-from pipeline.state import PipelineState
+from v2t_single.config import PipelineConfig
+from v2t_single.pipeline.nodes.build_prompt import run_build_prompt
+from v2t_single.pipeline.nodes.preprocessing import run_preprocessing
+from v2t_single.pipeline.schema import TrackOutputModel
+from v2t_single.pipeline.state import PipelineState
 
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi"}
@@ -187,7 +187,7 @@ def prepare_entry(
     state = build_initial_state(video_path, run_id, config)
 
     if dry_run:
-        from tools.video_utils import (
+        from v2t_single.tools.video_utils import (
             detect_scene_cuts,
             format_scene_cuts_for_prompt,
             get_duration,

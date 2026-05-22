@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 import yaml
 
-from prompts.prompts_registry import PromptProfile
+from v2t_single.prompts.prompts_registry import PromptProfile
 
 @dataclass
 class PipelineOptions:

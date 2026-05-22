@@ -4,10 +4,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from config import PipelineConfig
-from pipeline.graph import build_graph
-from pipeline.reporting import save_run_artifacts
-from pipeline.state import PipelineState
+from v2t_single.config import PipelineConfig
+from v2t_single.pipeline.graph import build_graph
+from v2t_single.pipeline.reporting import save_run_artifacts
+from v2t_single.pipeline.state import PipelineState
 
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi"}

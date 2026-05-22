@@ -1,8 +1,8 @@
 import os
 
 
-from clients.gemini_client import generate_structured_response
-from pipeline.state import PipelineState
+from v2t_single.clients.gemini_client import generate_structured_response
+from v2t_single.pipeline.state import PipelineState
 
 
 def _attach_layer_ids(track: dict) -> None:

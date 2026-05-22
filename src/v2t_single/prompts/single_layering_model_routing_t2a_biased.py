@@ -1,4 +1,4 @@
-from prompts.single_layering_model_routing import USER_PROMPT
+from v2t_single.prompts.single_layering_model_routing import USER_PROMPT
 
 
 SYSTEM_PROMPT = """

@@ -5,10 +5,10 @@ from threading import Lock
 
 from dotenv import load_dotenv
 
-from config import PipelineConfig
-from pipeline.graph import build_graph
-from pipeline.reporting import save_run_artifacts
-from run import build_initial_state, collect_video_paths, make_batch_output_root
+from v2t_single.config import PipelineConfig
+from v2t_single.pipeline.graph import build_graph
+from v2t_single.pipeline.reporting import save_run_artifacts
+from v2t_single.run import build_initial_state, collect_video_paths, make_batch_output_root
 
 
 _print_lock = Lock()

@@ -1,9 +1,9 @@
 import os
 from pathlib import Path
 
-from clients.gemini_client import get_client, upload_video
-from pipeline.state import PipelineState
-from tools.video_utils import (
+from v2t_single.clients.gemini_client import get_client, upload_video
+from v2t_single.pipeline.state import PipelineState
+from v2t_single.tools.video_utils import (
     detect_scene_cuts,
     format_scene_cuts_for_prompt,
     get_duration,
