@@ -12,6 +12,12 @@ dependencies = [
     "pydantic>=2.7.0",
     "langchain-google-genai>=4.2.2",
     "scenedetect>=0.7",
+    # synthesis dependencies
+    "moviepy>=2.2.1",
+    "openai>=2.29.0",
+    "elevenlabs>=2.40.0",
+    "scipy>=1.17.0",
+    "numpy>=2.4.0",
 ]
 
 [project.scripts]
@@ -22,6 +28,7 @@ v2t-batch-submit = "v2t_single.batch_submit:main"
 v2t-batch-collect = "v2t_single.batch_collect:main"
 v2t-rebuild-report = "v2t_single.rebuild_report:main"
 v2t-scene-detect-report = "v2t_single.scene_detect_report:main"
+v2t-synthesize = "v2t_single.synthesize:main"
 
 [dependency-groups]
 dev = [

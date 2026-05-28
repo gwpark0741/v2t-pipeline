@@ -6,12 +6,17 @@ from typing import Any
 
 
 def get_duration(video_path: str) -> float:
-    """ffprobe로 영상 길이(초) 추출 -> LLM 응답 timestamp 검증에 활용"""
-    result = subprocess.run(
-        ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", video_path],
-        capture_output=True, text=True, check=True
-    )
-    return float(json.loads(result.stdout)["format"]["duration"])
+    """cv2로 영상 길이(초) 추출 -> LLM 응답 timestamp 검증에 활용"""
+    import cv2
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Could not open video: {video_path}")
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    cap.release()
+    if fps <= 0:
+        return 0.0
+    return float(frame_count / fps)
 
 
 def detect_scene_cuts(
@@ -79,9 +84,11 @@ def strip_audio(video_path: str) -> str:
     """오디오 트랙 제거한 임시 파일 경로 반환 -> use_audio=false 모드 지원"""
     fd, tmp_path = tempfile.mkstemp(suffix=".mp4")
     try:
+        import imageio_ffmpeg
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
         os.close(fd)
         subprocess.run(
-            ["ffmpeg", "-i", video_path, "-an", "-c:v", "copy", tmp_path, "-y"],
+            [ffmpeg_exe, "-i", video_path, "-an", "-c:v", "copy", tmp_path, "-y"],
             check=True, capture_output=True
         )
         return tmp_path

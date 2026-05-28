@@ -16,6 +16,7 @@
 - JSON 결과와 HTML 보고서 저장
 - Gemini Batch API prepare/submit/collect workflow 지원
 - LangSmith trace에 Gemini token usage 기록
+- HunyuanVideo-Foley 및 ElevenLabs API를 사용한 V2A 생성 파이프라인
 
 ## 처리 흐름
 
@@ -95,6 +96,9 @@ GEMINI_API_KEY=your_gemini_key
 LANGSMITH_TRACING=true
 LANGSMITH_API_KEY=your_langsmith_key
 LANGSMITH_PROJECT=v2t-single
+ELEVENLABS_API_KEY=your_elevenlabs_key
+OPENAI_API_KEY=your_openai_key
+HUNYUAN_V2A_API_URL=http://localhost:8080
 ```
 
 LangSmith tracing을 사용하지 않으려면 `LANGSMITH_TRACING=false`로 설정합니다.
@@ -391,3 +395,36 @@ LangSmith 웹 UI에서 cost가 보이려면 pricing map에 해당 provider/model
 - `use_scene_detect`가 켜져 있으면 PySceneDetect로 모델 입력 전에 cut id/start/end를 추출해 Gemini user prompt와 결과 JSON에 기록합니다.
 - `use_hitl`, `input_mode: "frames"`는 설정 필드는 있지만 현재 baseline 구현 범위 밖입니다.
 - `use_sound_layering`은 legacy 옵션이며, 실제 프롬프트 선택은 `prompt_profile`을 우선 사용합니다.
+
+## V2A (HunyuanVideo-Foley) 원격 서버 설정
+
+비디오 클립 기반 효과음 생성을 위해 **HunyuanVideo-Foley** 모델을 사용합니다. 모델 크기(약 20GB)와 요구 사양(CUDA) 때문에 로컬 실행 대신 **Vast.ai**와 같은 원격 GPU 서버에 컨테이너를 띄우고, SSH 터널링을 통해 API 요청을 전달하는 방식을 권장합니다.
+
+### 1. 원격 인스턴스 셋업
+1. GPU (VRAM 24GB 이상 권장) 및 최소 **50GB 이상의 여유 디스크 공간**을 가진 인스턴스를 대여합니다.
+2. Base Image: `pytorch/pytorch:2.4.0-cuda11.8-cudnn9-devel` (또는 12.x 호환 이미지).
+3. 로컬의 `setup_remote.sh` 스크립트를 서버에 복사하고 실행하여 환경을 구축합니다:
+   ```bash
+   scp -P <port> setup_remote.sh root@<ip>:/root/
+   ssh -p <port> root@<ip> "bash setup_remote.sh"
+   ```
+
+### 2. API 서버 실행 및 로컬 포트 포워딩
+원격 서버에 포함된 `hunyuan_api_server.py`를 실행하고, 로컬 포트(8080)와 연결합니다.
+
+1. 원격 서버에서 API 구동:
+   ```bash
+   # 서버 터미널에서 실행 (tmux 환경 권장)
+   cd /root/HunyuanVideo-Foley
+   export HUNYUAN_MODEL_PATH=/root/HunyuanVideo-Foley/weights
+   python3 hunyuan_api_server.py
+   ```
+2. 로컬 윈도우에서 SSH 터널링 연결 (창을 끄지 않고 유지):
+   ```bash
+   ssh -p <port> root@<ip> -L 8080:localhost:8080
+   ```
+3. 로컬 프로젝트의 `.env` 파일에 API URL을 설정:
+   ```bash
+   HUNYUAN_V2A_API_URL=http://localhost:8080
+   ```
+이후 `v2t-synthesize` 명령어를 실행하면 해당 터널링 포트를 통해 V2A 모델이 오디오를 생성합니다.
