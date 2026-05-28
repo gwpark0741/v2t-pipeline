@@ -95,7 +95,7 @@ uv sync
 GEMINI_API_KEY=your_gemini_key
 LANGFUSE_SECRET_KEY="sk-lf-..."
 LANGFUSE_PUBLIC_KEY="pk-lf-..."
-LANGFUSE_BASE_URL="https://..."
+LANGFUSE_HOST="https://..."
 ELEVENLABS_API_KEY=your_elevenlabs_key
 OPENAI_API_KEY=your_openai_key
 HUNYUAN_V2A_API_URL=http://localhost:8080
