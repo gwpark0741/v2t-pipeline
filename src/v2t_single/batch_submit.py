@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
+load_dotenv(override=True)
 
 from v2t_single.clients.gemini_batch_client import (
     batch_job_to_dict,
@@ -113,7 +114,6 @@ def submit_chunk(
 
 
 def main() -> None:
-    load_dotenv()
     args = parse_args()
 
     if "GEMINI_API_KEY" not in os.environ:

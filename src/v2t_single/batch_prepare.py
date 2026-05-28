@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
+load_dotenv(override=True)
 
 from v2t_single.config import PipelineConfig
 from v2t_single.pipeline.nodes.build_prompt import run_build_prompt
@@ -259,7 +260,6 @@ def write_request_chunks(
 
 
 def main() -> None:
-    load_dotenv()
     args = parse_args()
 
     if args.chunk_size <= 0:

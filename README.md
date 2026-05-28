@@ -93,15 +93,15 @@ uv sync
 
 ```bash
 GEMINI_API_KEY=your_gemini_key
-LANGSMITH_TRACING=true
-LANGSMITH_API_KEY=your_langsmith_key
-LANGSMITH_PROJECT=v2t-single
+LANGFUSE_SECRET_KEY="sk-lf-..."
+LANGFUSE_PUBLIC_KEY="pk-lf-..."
+LANGFUSE_BASE_URL="https://..."
 ELEVENLABS_API_KEY=your_elevenlabs_key
 OPENAI_API_KEY=your_openai_key
 HUNYUAN_V2A_API_URL=http://localhost:8080
 ```
 
-LangSmith tracing을 사용하지 않으려면 `LANGSMITH_TRACING=false`로 설정합니다.
+Langfuse 연동을 원치 않으시면 `LANGFUSE_SECRET_KEY` 등을 빈 값으로 두거나 주석 처리합니다.
 
 ## 설정
 
@@ -373,21 +373,15 @@ uv run v2t-rebuild-report \
   --output results/<path-to-run>/report.html
 ```
 
-## LangSmith Tracing
+## Langfuse Tracing
 
-`src/v2t_single/clients/gemini_client.py`의 single Gemini 호출은 LangSmith `traceable(run_type="llm")`로 감싸져 있습니다. Gemini 응답의 `usage_metadata`를 LangSmith usage schema로 변환해 trace에 기록합니다.
+`src/v2t_single/clients/gemini_client.py`의 single Gemini 호출은 Langfuse `@observe` 데코레이터로 감싸져 있습니다. Gemini 응답의 `usage_metadata`를 Langfuse usage schema로 변환해 trace에 기록합니다.
 
-LangSmith cost 표시에는 아래 값이 사용됩니다.
+추가로 `audio_client.py`의 각 TTS, SFX, V2A 호출 역시 Langfuse를 통해 LLM Generation 및 Span으로 기록되어 전체 파이프라인의 실행 시간과 비용을 추적할 수 있습니다.
 
-- `ls_provider`: `google_genai`
-- `ls_model_name`: 실행 모델명
-- `usage_metadata.input_tokens`
-- `usage_metadata.output_tokens`
-- `usage_metadata.total_tokens`
+Langfuse 웹 UI에서 cost가 보이려면 pricing map에 해당 provider/model 조합이 매칭되어야 합니다. 매칭되지 않으면 token usage는 남지만 cost가 비어 있을 수 있습니다.
 
-LangSmith 웹 UI에서 cost가 보이려면 pricing map에 해당 provider/model 조합이 매칭되어야 합니다. 매칭되지 않으면 token usage는 남지만 cost가 비어 있을 수 있습니다.
-
-현재 batch collect 경로는 Gemini Batch API 결과를 로컬 산출물로 변환하며, single 호출처럼 LangSmith LLM run을 직접 생성하지는 않습니다.
+현재 batch collect 경로는 Gemini Batch API 결과를 로컬 산출물로 변환하며, single 호출처럼 LLM run을 직접 생성하지는 않습니다.
 
 ## 개발 메모
 

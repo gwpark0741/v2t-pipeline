@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 import scipy.io.wavfile as wavfile
 import requests
-from langsmith import traceable
+from langfuse.decorators import langfuse_context, observe
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # ── OpenAI TTS ────────────────────────────────────────────────────────────────
 
 
-@traceable(run_type="llm", name="t2a_dialogue_openai")
+@observe(as_type="generation", name="t2a_dialogue_openai")
 def generate_dialogue_openai(
     text: str, out_path: str, duration: float | None = None
 ) -> str:
@@ -76,6 +76,14 @@ def generate_dialogue_openai(
         input=spoken_text,
         speed=speed,
     )
+
+    langfuse_context.update_current_observation(
+        usage={
+            "total": len(spoken_text),
+            "unit": "CHARACTERS"
+        }
+    )
+
     response.stream_to_file(out_path)
     return out_path
 
@@ -83,7 +91,7 @@ def generate_dialogue_openai(
 # ── ElevenLabs SFX ────────────────────────────────────────────────────────────
 
 
-@traceable(run_type="llm", name="t2a_sfx_elevenlabs")
+@observe(as_type="generation", name="t2a_sfx_elevenlabs")
 def generate_sfx_elevenlabs(
     text: str, out_path: str, duration: float | None = None
 ) -> str:
@@ -103,6 +111,14 @@ def generate_sfx_elevenlabs(
             text=text,
             duration_seconds=dur_seconds,
         )
+
+        langfuse_context.update_current_observation(
+            usage={
+                "total": len(text),
+                "unit": "CHARACTERS"
+            }
+        )
+
         with open(out_path, "wb") as f:
             for chunk in audio_generator:
                 f.write(chunk)
@@ -115,7 +131,7 @@ def generate_sfx_elevenlabs(
 # ── ElevenLabs Music ──────────────────────────────────────────────────────────
 
 
-@traceable(run_type="llm", name="t2a_music_elevenlabs")
+@observe(as_type="generation", name="t2a_music_elevenlabs")
 def generate_music_elevenlabs(
     text: str, out_path: str, duration: float | None = None
 ) -> str:
@@ -135,6 +151,14 @@ def generate_music_elevenlabs(
             prompt=text,
             music_length_ms=dur_ms,
         )
+
+        langfuse_context.update_current_observation(
+            usage={
+                "total": len(text),
+                "unit": "CHARACTERS"
+            }
+        )
+
         with open(out_path, "wb") as f:
             for chunk in audio_generator:
                 f.write(chunk)
@@ -172,7 +196,7 @@ def generate_dummy_audio(
 # ── V2A Hunyuan API ───────────────────────────────────────────────────────────
 
 
-@traceable(run_type="llm", name="v2a_hunyuan")
+@observe(as_type="generation", name="v2a_hunyuan")
 def generate_v2a_hunyuan(
     video_path: str,
     time: tuple[float, float],
@@ -214,6 +238,14 @@ def generate_v2a_hunyuan(
         if response.status_code == 200:
             with open(out_path, "wb") as f_out:
                 f_out.write(response.content)
+            
+            langfuse_context.update_current_observation(
+                usage={
+                    "total": max(1, int(time[1] - time[0])),
+                    "unit": "SECONDS"
+                }
+            )
+
             return out_path
         else:
             logger.error("Hunyuan API failed with %d: %s", response.status_code, response.text)
@@ -226,7 +258,7 @@ def generate_v2a_hunyuan(
 # ── Router ────────────────────────────────────────────────────────────────────
 
 
-@traceable(run_type="chain", name="t2a_router")
+@observe(name="t2a_router")
 def generate_audio_for_item(
     kind: str,
     description: str,

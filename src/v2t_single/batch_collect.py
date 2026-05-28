@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
+load_dotenv(override=True)
 from pydantic import ValidationError
 
 from v2t_single.clients.gemini_batch_client import (
@@ -283,7 +284,6 @@ def collect_job(
 
 
 def main() -> None:
-    load_dotenv()
     args = parse_args()
 
     if "GEMINI_API_KEY" not in os.environ:

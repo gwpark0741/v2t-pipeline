@@ -3,6 +3,9 @@ from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
+load_dotenv(override=True)
+
+from langfuse.decorators import langfuse_context
 
 from v2t_single.config import PipelineConfig
 from v2t_single.pipeline.graph import build_graph
@@ -97,7 +100,6 @@ def build_initial_state(
 
 def main():
     """파이프라인 실행의 진입점 함수"""
-    load_dotenv() # .env 파일에서 환경 변수 로드
 
     args = parse_args() # 커맨드라인 인자 파싱
     if args.max_videos is not None and args.max_videos <= 0:
@@ -135,6 +137,8 @@ def main():
         except Exception as exc:
             print(f"[{index}/{total_videos}] Failed: {video_path}")
             print(f"Error: {exc}")
+    
+    langfuse_context.flush()
 
 
 if __name__ == "__main__":

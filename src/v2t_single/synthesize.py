@@ -22,6 +22,9 @@ from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
+load_dotenv(override=True)
+
+from langfuse.decorators import langfuse_context
 
 from v2t_single.audio_client import generate_audio_for_item
 from v2t_single.convert import AudioPlan, convert_tracks_to_audio_plan
@@ -79,8 +82,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
-    load_dotenv(override=True)
-
     args = parse_args(argv)
 
     # 로깅 설정
@@ -217,9 +218,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if result:
         print(f"\n✅ Synthesis complete: {Path(result).resolve()}", file=sys.stderr)
+        langfuse_context.flush()
         return 0
     else:
         print("\n❌ Synthesis failed.", file=sys.stderr)
+        langfuse_context.flush()
         return 1
 
 
