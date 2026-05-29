@@ -16,7 +16,7 @@
 - JSON 결과와 HTML 보고서 저장
 - Gemini Batch API prepare/submit/collect workflow 지원
 - LangSmith trace에 Gemini token usage 기록
-- HunyuanVideo-Foley 및 ElevenLabs API를 사용한 V2A 생성 파이프라인
+- MMAudio 및 ElevenLabs API를 사용한 V2A 생성 파이프라인
 
 ## 처리 흐름
 
@@ -98,7 +98,7 @@ LANGFUSE_PUBLIC_KEY="pk-lf-..."
 LANGFUSE_HOST="https://..."
 ELEVENLABS_API_KEY=your_elevenlabs_key
 OPENAI_API_KEY=your_openai_key
-HUNYUAN_V2A_API_URL=http://localhost:8080
+MMAUDIO_V2A_API_URL=http://localhost:8080
 ```
 
 Langfuse 연동을 원치 않으시면 `LANGFUSE_SECRET_KEY` 등을 빈 값으로 두거나 주석 처리합니다.
@@ -390,12 +390,12 @@ Langfuse 웹 UI에서 cost가 보이려면 pricing map에 해당 provider/model 
 - `use_hitl`, `input_mode: "frames"`는 설정 필드는 있지만 현재 baseline 구현 범위 밖입니다.
 - `use_sound_layering`은 legacy 옵션이며, 실제 프롬프트 선택은 `prompt_profile`을 우선 사용합니다.
 
-## V2A (HunyuanVideo-Foley) 원격 서버 설정
+## V2A (MMAudio) 원격 서버 설정
 
-비디오 클립 기반 효과음 생성을 위해 **HunyuanVideo-Foley** 모델을 사용합니다. 모델 크기(약 20GB)와 요구 사양(CUDA) 때문에 로컬 실행 대신 **Vast.ai**와 같은 원격 GPU 서버에 컨테이너를 띄우고, SSH 터널링을 통해 API 요청을 전달하는 방식을 권장합니다.
+비디오 클립 기반 효과음 생성을 위해 **MMAudio** 모델을 사용합니다. 모델 크기(약 6GB)와 요구 사양(CUDA) 때문에 로컬 실행 대신 **Vast.ai**와 같은 원격 GPU 서버에 컨테이너를 띄우고, SSH 터널링을 통해 API 요청을 전달하는 방식을 권장합니다.
 
 ### 1. 원격 인스턴스 셋업
-1. GPU (VRAM 24GB 이상 권장) 및 최소 **50GB 이상의 여유 디스크 공간**을 가진 인스턴스를 대여합니다.
+1. GPU (VRAM 16GB 이상 권장) 및 최소 **30GB 이상의 여유 디스크 공간**을 가진 인스턴스를 대여합니다.
 2. Base Image: `pytorch/pytorch:2.4.0-cuda11.8-cudnn9-devel` (또는 12.x 호환 이미지).
 3. 로컬의 `setup_remote.sh` 스크립트를 서버에 복사하고 실행하여 환경을 구축합니다:
    ```bash
@@ -404,14 +404,13 @@ Langfuse 웹 UI에서 cost가 보이려면 pricing map에 해당 provider/model 
    ```
 
 ### 2. API 서버 실행 및 로컬 포트 포워딩
-원격 서버에 포함된 `hunyuan_api_server.py`를 실행하고, 로컬 포트(8080)와 연결합니다.
+원격 서버에 포함된 `mmaudio_api_server.py`를 실행하고, 로컬 포트(8080)와 연결합니다.
 
 1. 원격 서버에서 API 구동:
    ```bash
    # 서버 터미널에서 실행 (tmux 환경 권장)
-   cd /root/HunyuanVideo-Foley
-   export HUNYUAN_MODEL_PATH=/root/HunyuanVideo-Foley/weights
-   python3 hunyuan_api_server.py
+   cd /root/MMAudio
+   python3 mmaudio_api_server.py
    ```
 2. 로컬 윈도우에서 SSH 터널링 연결 (창을 끄지 않고 유지):
    ```bash
@@ -419,6 +418,6 @@ Langfuse 웹 UI에서 cost가 보이려면 pricing map에 해당 provider/model 
    ```
 3. 로컬 프로젝트의 `.env` 파일에 API URL을 설정:
    ```bash
-   HUNYUAN_V2A_API_URL=http://localhost:8080
+   MMAUDIO_V2A_API_URL=http://localhost:8080
    ```
 이후 `v2t-synthesize` 명령어를 실행하면 해당 터널링 포트를 통해 V2A 모델이 오디오를 생성합니다.

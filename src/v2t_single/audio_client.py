@@ -193,21 +193,21 @@ def generate_dummy_audio(
     return out_path
 
 
-# ── V2A Hunyuan API ───────────────────────────────────────────────────────────
+# ── V2A MMAudio API ───────────────────────────────────────────────────────────
 
 
-@observe(as_type="generation", name="v2a_hunyuan")
-def generate_v2a_hunyuan(
+@observe(as_type="generation", name="v2a_mmaudio")
+def generate_v2a_mmaudio(
     video_path: str,
     time: tuple[float, float],
     text: str,
     out_path: str,
     duration: float | None = None,
 ) -> str:
-    """Generate audio using HunyuanVideo-Foley via remote vast.ai API."""
-    api_url = os.getenv("HUNYUAN_V2A_API_URL")
+    """Generate audio using MMAudio via remote vast.ai API."""
+    api_url = os.getenv("MMAUDIO_V2A_API_URL")
     if not api_url:
-        logger.warning("HUNYUAN_V2A_API_URL not found. Falling back to dummy audio.")
+        logger.warning("MMAUDIO_V2A_API_URL not found. Falling back to dummy audio.")
         return generate_dummy_audio(duration or 1.0, out_path)
 
     try:
@@ -230,7 +230,7 @@ def generate_v2a_hunyuan(
         with open(tmp_video_path, "rb") as f:
             files = {"video": f}
             data = {"prompt": text}
-            logger.info("Calling Hunyuan V2A API: %s", api_url)
+            logger.info("Calling MMAudio V2A API: %s", api_url)
             response = requests.post(f"{api_url}/generate_v2a", files=files, data=data)
             
         os.remove(tmp_video_path)
@@ -248,10 +248,10 @@ def generate_v2a_hunyuan(
 
             return out_path
         else:
-            logger.error("Hunyuan API failed with %d: %s", response.status_code, response.text)
+            logger.error("MMAudio API failed with %d: %s", response.status_code, response.text)
             return generate_dummy_audio(duration or 1.0, out_path)
     except Exception as e:
-        logger.error("Failed to call Hunyuan API: %s", e)
+        logger.error("Failed to call MMAudio API: %s", e)
         return generate_dummy_audio(duration or 1.0, out_path)
 
 
@@ -289,7 +289,7 @@ def generate_audio_for_item(
     """
     try:
         if generation_model == "v2a" and video_path and time:
-            return generate_v2a_hunyuan(video_path, time, description, out_path, duration)
+            return generate_v2a_mmaudio(video_path, time, description, out_path, duration)
 
         if kind == "dialogue":
             if '"' in description or "'" in description:
