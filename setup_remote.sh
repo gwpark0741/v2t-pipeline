@@ -16,7 +16,7 @@ cd MMAudio
 
 # 4. Install requirements
 pip install -e .
-pip install fastapi uvicorn python-multipart loguru
+pip install fastapi uvicorn python-multipart loguru torchaudio torchvision
 
 # 5. Move api server script
 cp ../mmaudio_api_server.py .
