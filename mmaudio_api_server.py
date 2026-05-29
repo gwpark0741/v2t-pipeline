@@ -96,16 +96,17 @@ async def generate_v2a_endpoint(
         
         fm_instance = FlowMatching(min_sigma=0, inference_mode='euler', num_steps=num_inference_steps)
         
-        audios = generate(clip_frames,
-                          sync_frames, [prompt],
-                          negative_text=[""],
-                          feature_utils=feature_utils,
-                          net=net,
-                          fm=fm_instance,
-                          rng=rng,
-                          cfg_strength=guidance_scale)
-                          
-        audio_tensor = audios.float().cpu()[0]
+        with torch.inference_mode():
+            audios = generate(clip_frames,
+                              sync_frames, [prompt],
+                              negative_text=[""],
+                              feature_utils=feature_utils,
+                              net=net,
+                              fm=fm_instance,
+                              rng=rng,
+                              cfg_strength=guidance_scale)
+                              
+            audio_tensor = audios.float().cpu()[0]
         
         out_wav = Path(tmp_dir) / f"output_{uuid.uuid4().hex}.wav"
         torchaudio.save(str(out_wav), audio_tensor, seq_cfg.sampling_rate)
