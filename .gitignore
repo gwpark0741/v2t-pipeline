@@ -19,6 +19,8 @@ samples/*
 
 # langgraph API
 .langgraph_api/
+.omc/
+video-asset.json
 
 
 .DS_Store

@@ -78,6 +78,15 @@ class PipelineState(TypedDict):
     use_scene_detect: bool
     use_sound_layering: bool
     prompt_profile: PromptProfile
+    save_intermediate: NotRequired[bool]
+    multi_base_fps: NotRequired[float]
+    multi_refinement_fps: NotRequired[float]
+    multi_single_event_padding_seconds: NotRequired[float]
+    multi_repeated_chunk_seconds: NotRequired[float]
+    multi_chunk_overlap_seconds: NotRequired[float]
+    multi_timestamp_merge_tolerance_seconds: NotRequired[float]
+    multi_validation_retry_count: NotRequired[int]
+    multi_refinement_max_workers: NotRequired[int]
 
     # 전처리 결과: pipeline/nodes/preprocessing.py에서 설정
     video_duration: NotRequired[float]
@@ -95,6 +104,11 @@ class PipelineState(TypedDict):
     raw_json_payload: NotRequired[str]
     action_tracks: NotRequired[list[ActionTrack]]
     background_tracks: NotRequired[list[BackgroundTrack]]
+    draft_tracks: NotRequired[dict]
+    timestamp_tasks: NotRequired[list[dict]]
+    timestamp_refined_tracks: NotRequired[dict]
+    routed_tracks: NotRequired[dict]
+    intermediate_artifacts: NotRequired[dict[str, object]]
 
     # 메타: run.py에서 초기화, 각 노드에서 에러 누적
     run_id: str

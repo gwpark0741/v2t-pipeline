@@ -484,18 +484,27 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
 
     .timeline-body {{
       position: relative;
+      cursor: pointer;
+      user-select: none;
+      touch-action: none;
+    }}
+
+    .timeline-body.is-scrubbing {{
+      cursor: grabbing;
     }}
 
     .playhead {{
       position: absolute;
       top: 0;
       bottom: 0;
-      left: 260px;
+      left: 0;
       width: 2px;
+      transform: translateX(260px);
       background: var(--playhead);
       pointer-events: none;
       z-index: 5;
       box-shadow: 0 0 0 1px rgba(193, 18, 31, 0.18);
+      will-change: transform;
     }}
 
     .playhead::before {{
@@ -985,9 +994,12 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
   <script>
     const video = document.getElementById("report-video");
     const playheads = Array.from(document.querySelectorAll(".playhead"));
+    const timelineBodies = Array.from(document.querySelectorAll(".timeline-body"));
     const tabButtons = Array.from(document.querySelectorAll(".tab-button"));
     const tabPanels = Array.from(document.querySelectorAll(".tab-panel"));
     const fallbackDuration = {duration};
+    let playheadFrameId = null;
+    let isScrubbing = false;
 
     function updatePlayhead() {{
       if (!video || !playheads.length) return;
@@ -1003,14 +1015,79 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
 
       playheads.forEach((playhead) => {{
         if (window.innerWidth <= 1100) {{
-          playhead.style.left = `${{progress * 100}}%`;
+          const laneWidth = playhead.parentElement.clientWidth;
+          playhead.style.transform = `translateX(${{laneWidth * progress}}px)`;
           return;
         }}
 
         const laneOffset = 260;
         const laneWidth = playhead.parentElement.clientWidth - laneOffset;
-        playhead.style.left = `${{laneOffset + (laneWidth * progress)}}px`;
+        playhead.style.transform = `translateX(${{laneOffset + (laneWidth * progress)}}px)`;
       }});
+    }}
+
+    function getEffectiveDuration() {{
+      if (!video) return fallbackDuration;
+      return Number.isFinite(video.duration) && video.duration > 0
+        ? video.duration
+        : fallbackDuration;
+    }}
+
+    function getTimelineProgressFromEvent(event, timelineBody) {{
+      const rect = timelineBody.getBoundingClientRect();
+      const laneOffset = window.innerWidth <= 1100 ? 0 : 260;
+      const laneStart = rect.left + laneOffset;
+      const laneWidth = Math.max(1, rect.width - laneOffset);
+      const progress = (event.clientX - laneStart) / laneWidth;
+      return Math.max(0, Math.min(1, progress));
+    }}
+
+    function seekTimeline(event, timelineBody) {{
+      if (!video) return;
+      const effectiveDuration = getEffectiveDuration();
+      if (!effectiveDuration) return;
+      const progress = getTimelineProgressFromEvent(event, timelineBody);
+      video.currentTime = progress * effectiveDuration;
+      updatePlayhead();
+    }}
+
+    function startScrubbing(event) {{
+      if (!video) return;
+      const timelineBody = event.currentTarget;
+      isScrubbing = true;
+      timelineBodies.forEach((body) => body.classList.add("is-scrubbing"));
+      timelineBody.setPointerCapture?.(event.pointerId);
+      seekTimeline(event, timelineBody);
+    }}
+
+    function scrubTimeline(event) {{
+      if (!isScrubbing) return;
+      seekTimeline(event, event.currentTarget);
+    }}
+
+    function stopScrubbing(event) {{
+      if (!isScrubbing) return;
+      isScrubbing = false;
+      timelineBodies.forEach((body) => body.classList.remove("is-scrubbing"));
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+      updatePlayhead();
+    }}
+
+    function tickPlayhead() {{
+      updatePlayhead();
+      playheadFrameId = window.requestAnimationFrame(tickPlayhead);
+    }}
+
+    function startPlayheadLoop() {{
+      if (playheadFrameId !== null) return;
+      playheadFrameId = window.requestAnimationFrame(tickPlayhead);
+    }}
+
+    function stopPlayheadLoop() {{
+      if (playheadFrameId === null) return;
+      window.cancelAnimationFrame(playheadFrameId);
+      playheadFrameId = null;
+      updatePlayhead();
     }}
 
     tabButtons.forEach((button) => {{
@@ -1022,6 +1099,18 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
       }});
     }});
 
+    timelineBodies.forEach((timelineBody) => {{
+      timelineBody.addEventListener("pointerdown", startScrubbing);
+      timelineBody.addEventListener("pointermove", scrubTimeline);
+      timelineBody.addEventListener("pointerup", stopScrubbing);
+      timelineBody.addEventListener("pointercancel", stopScrubbing);
+    }});
+
+    video?.addEventListener("play", startPlayheadLoop);
+    video?.addEventListener("pause", stopPlayheadLoop);
+    video?.addEventListener("ended", stopPlayheadLoop);
+    video?.addEventListener("seeking", updatePlayhead);
+    video?.addEventListener("seeked", updatePlayhead);
     video?.addEventListener("timeupdate", updatePlayhead);
     video?.addEventListener("loadedmetadata", updatePlayhead);
     window.addEventListener("resize", updatePlayhead);
@@ -1033,7 +1122,7 @@ def build_report_html(state: PipelineState, video_src: str) -> str:
 
 
 def _serialize_state(state: PipelineState) -> dict[str, Any]:
-    return {
+    payload = {
         "video_path": state["video_path"],
         "model": state["model"],
         "temperature": state["temperature"],
@@ -1053,6 +1142,22 @@ def _serialize_state(state: PipelineState) -> dict[str, Any]:
         "run_id": state["run_id"],
         "errors": state["errors"],
     }
+    return payload
+
+
+def _write_intermediate_artifacts(state: PipelineState, run_dir: Path) -> None:
+    if not state.get("save_intermediate"):
+        return
+    artifacts = state.get("intermediate_artifacts", {})
+    if not artifacts:
+        return
+    intermediate_dir = run_dir / "intermediate"
+    intermediate_dir.mkdir(parents=True, exist_ok=True)
+    for filename, payload in artifacts.items():
+        (intermediate_dir / filename).write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
 
 
 def _resolve_report_video_src(report_dir: Path, state: PipelineState) -> str:
@@ -1113,6 +1218,7 @@ def save_run_artifacts(state: PipelineState, output_root: str) -> tuple[Path, Pa
         json.dumps(_serialize_state(state), indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+    _write_intermediate_artifacts(state, run_dir)
     # HTML 보고서 생성 및 저장
     write_report_html(state, report_html_path)
 

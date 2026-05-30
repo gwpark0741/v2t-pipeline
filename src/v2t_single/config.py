@@ -14,6 +14,14 @@ class PipelineOptions:
     video_fps: float | None = None
     use_sound_layering: bool = True                          # legacy
     prompt_profile: PromptProfile = "single_layering_model_routing" # 사용할 프롬프트
+    multi_base_fps: float = 1.0
+    multi_refinement_fps: float = 10.0
+    multi_single_event_padding_seconds: float = 1.5
+    multi_repeated_chunk_seconds: float = 12.0
+    multi_chunk_overlap_seconds: float = 0.25
+    multi_timestamp_merge_tolerance_seconds: float = 0.10
+    multi_validation_retry_count: int = 1
+    multi_refinement_max_workers: int = 4
 
 
 @dataclass

@@ -1,4 +1,4 @@
-mode: "single"
+mode: "multi"
 model: "gemini-3.1-pro-preview"
 output_dir: "results"
 temperature: 0.0
@@ -10,6 +10,14 @@ options:
   use_hitl: false
   save_intermediate: true
   input_mode: "file_api"
-  video_fps: 5
+  video_fps: 5  # single/batch baseline only; multi mode uses multi_base_fps and multi_refinement_fps
   use_sound_layering: true  # legacy
   prompt_profile: "single_layering_model_routing"
+  multi_base_fps: 1
+  multi_refinement_fps: 10
+  multi_single_event_padding_seconds: 1.5
+  multi_repeated_chunk_seconds: 12.0
+  multi_chunk_overlap_seconds: 0.25
+  multi_timestamp_merge_tolerance_seconds: 0.10
+  multi_validation_retry_count: 1
+  multi_refinement_max_workers: 4

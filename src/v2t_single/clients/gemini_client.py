@@ -1,12 +1,16 @@
 import time
+from typing import TypeVar
 
 from langsmith import get_current_run_tree, traceable
 
 from google import genai
 from google.genai import types
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from v2t_single.pipeline.schema import TrackOutputModel
+
+
+SchemaModelT = TypeVar("SchemaModelT", bound=BaseModel)
 
 
 def get_client(api_key: str) -> genai.Client:
@@ -43,7 +47,9 @@ def upload_video(
 
 def _build_video_part(
         file_uri: str, 
-        video_fps: float | None
+        video_fps: float | None,
+        start_offset: str | None = None,
+        end_offset: str | None = None,
 ) -> types.Part:
     """비디오 파일에 대한 추론 준비: File API 업로드된 video + fps info -> video part 생성"""
     file_data = types.FileData(
@@ -51,12 +57,18 @@ def _build_video_part(
         mime_type="video/mp4",
     )
 
-    if video_fps is None:
+    if video_fps is None and start_offset is None and end_offset is None:
         return types.Part(file_data=file_data)
+
+    video_metadata = types.VideoMetadata(
+        fps=video_fps,
+        start_offset=start_offset,
+        end_offset=end_offset,
+    )
     
     return types.Part(
         file_data=file_data,
-        video_metadata=types.VideoMetadata(fps=video_fps),
+        video_metadata=video_metadata,
     )
 
 
@@ -64,6 +76,7 @@ def _build_generation_config(
     system_prompt: str,
     temperature: float,
     seed: int,
+    schema_model: type[BaseModel] = TrackOutputModel,
 ) -> types.GenerateContentConfig:
     """Gemini generation config 생성"""
     return types.GenerateContentConfig(
@@ -71,7 +84,7 @@ def _build_generation_config(
         temperature = temperature,
         seed = seed,
         response_mime_type="application/json",
-        response_json_schema=TrackOutputModel.model_json_schema(),
+        response_json_schema=schema_model.model_json_schema(),
     )
 
 
@@ -89,6 +102,18 @@ def _validate_track_output(response_text: str) -> TrackOutputModel:
         return TrackOutputModel.model_validate_json(response_text)
     except ValidationError as exc:
         print(f"LLM JSON did not match TrackOutputModel: {exc}")
+        raise
+
+
+def _validate_json_output(
+    response_text: str,
+    schema_model: type[SchemaModelT],
+) -> SchemaModelT:
+    """Gemini JSON 응답을 호출자가 넘긴 Pydantic schema로 검증한다."""
+    try:
+        return schema_model.model_validate_json(response_text)
+    except ValidationError as exc:
+        print(f"LLM JSON did not match {schema_model.__name__}: {exc}")
         raise
 
 
@@ -202,3 +227,80 @@ def generate_structured_response(
     track_output = _validate_track_output(raw_json_payload)
     # raw JSON과 검증된 모델을 반환
     return raw_json_payload, track_output
+
+
+@traceable(
+    name="Gemini Generate JSON",
+    run_type="llm",
+    process_inputs=lambda inputs: {
+        "model_name": inputs.get("model_name"),
+        "file_uri": inputs.get("file_uri"),
+        "video_fps": inputs.get("video_fps"),
+        "start_offset": inputs.get("start_offset"),
+        "end_offset": inputs.get("end_offset"),
+        "temperature": inputs.get("temperature"),
+        "seed": inputs.get("seed"),
+        "schema_model": getattr(inputs.get("schema_model"), "__name__", None),
+        "system_prompt": inputs.get("system_prompt"),
+        "user_prompt": inputs.get("user_prompt"),
+    },
+)
+def generate_json_response(
+    api_key: str,
+    user_prompt: str,
+    file_uri: str,
+    model_name: str,
+    temperature: float,
+    seed: int,
+    schema_model: type[SchemaModelT],
+    system_prompt: str = "",
+    video_fps: float | None = None,
+    start_offset: str | None = None,
+    end_offset: str | None = None,
+) -> tuple[str, SchemaModelT]:
+    """Gemini SDK + arbitrary structured JSON schema 호출."""
+    client = get_client(api_key)
+    video_part = _build_video_part(
+        file_uri=file_uri,
+        video_fps=video_fps,
+        start_offset=start_offset,
+        end_offset=end_offset,
+    )
+    config = _build_generation_config(
+        system_prompt=system_prompt,
+        temperature=temperature,
+        seed=seed,
+        schema_model=schema_model,
+    )
+
+    run = get_current_run_tree()
+    if run is not None:
+        run.add_metadata({
+            "ls_provider": "google_genai",
+            "ls_model_name": model_name.removeprefix("models/"),
+            "ls_model_type": "chat",
+            "ls_temperature": temperature,
+            "ls_invocation_params": {
+                "seed": seed,
+                "video_fps": video_fps,
+                "start_offset": start_offset,
+                "end_offset": end_offset,
+                "schema_model": schema_model.__name__,
+            },
+        })
+
+    response = client.models.generate_content(
+        model=model_name,
+        contents=[
+            video_part,
+            types.Part(text=user_prompt),
+        ],
+        config=config,
+    )
+
+    usage_metadata = _extract_langsmith_usage_metadata(response)
+    if run is not None and usage_metadata:
+        run.set(usage_metadata=usage_metadata)
+
+    raw_json_payload = _extract_response_text(response)
+    return raw_json_payload, _validate_json_output(raw_json_payload, schema_model)

@@ -5,7 +5,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from v2t_single.config import PipelineConfig
-from v2t_single.pipeline.graph import build_graph
+from v2t_single.pipeline.graph import build_graph, build_multi_graph
 from v2t_single.pipeline.reporting import save_run_artifacts
 from v2t_single.pipeline.state import PipelineState
 
@@ -90,6 +90,15 @@ def build_initial_state(
         "use_scene_detect": config.options.use_scene_detect,
         "use_sound_layering": config.options.use_sound_layering,
         "prompt_profile": config.options.prompt_profile,
+        "save_intermediate": config.options.save_intermediate,
+        "multi_base_fps": config.options.multi_base_fps,
+        "multi_refinement_fps": config.options.multi_refinement_fps,
+        "multi_single_event_padding_seconds": config.options.multi_single_event_padding_seconds,
+        "multi_repeated_chunk_seconds": config.options.multi_repeated_chunk_seconds,
+        "multi_chunk_overlap_seconds": config.options.multi_chunk_overlap_seconds,
+        "multi_timestamp_merge_tolerance_seconds": config.options.multi_timestamp_merge_tolerance_seconds,
+        "multi_validation_retry_count": config.options.multi_validation_retry_count,
+        "multi_refinement_max_workers": config.options.multi_refinement_max_workers,
         "run_id": make_run_id(video_path),
         "errors": [],
     }
@@ -105,7 +114,7 @@ def main():
 
     config = PipelineConfig.from_yaml(args.config) # yaml 파일에서 파이프라인 설정 로드
 
-    graph = build_graph()
+    graph = build_multi_graph() if config.mode == "multi" else build_graph()
 
     video_paths = collect_video_paths(args.video, recursive=args.recursive)
     if args.max_videos is not None:
